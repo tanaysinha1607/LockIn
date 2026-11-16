@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables & Secrets (NEVER commit)
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Local credentials & sensitive notes
+LockIn credentials.txt
+*credentials*.txt
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.mobileprovision
+
+# Expo & Build outputs
+.expo/
+**/.expo/
+dist/
+**/dist/
+web-build/
+**/web-build/
+expo-env.d.ts
+
+# Native generated folders
+/mobile/ios
+/mobile/android
+.kotlin/
+*.orig.*
+
+# Metro
+.metro-health-check*
+
+# Logs & Debug
+logs/
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tsbuildinfo
