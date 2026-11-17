@@ -93,6 +93,7 @@ const respondToBuddyRequest = async (receiverId, requestId, status) => {
   }
 
   request.status = status;
+  request.respondedAt = new Date();
   await request.save();
 
   let match = null;
@@ -135,6 +136,17 @@ const respondToBuddyRequest = async (receiverId, requestId, status) => {
     // Link conversation back to the match
     match.conversationId = conversation._id;
     await match.save();
+
+    request.matchId = match._id;
+    await request.save();
+
+    // Put both buddies' live sockets into the new chat room right away
+    try {
+      const { joinUsersToConversation } = require('../socket');
+      joinUsersToConversation([senderId, receiverId], conversation._id);
+    } catch (err) {
+      // Socket layer not initialised (e.g. scripts) - clients join on next connect
+    }
   }
 
   return { request, match };

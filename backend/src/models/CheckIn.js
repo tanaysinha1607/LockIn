@@ -1,6 +1,14 @@
 const mongoose = require('mongoose');
 const { MOODS } = require('../config/constants');
 
+const pointSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ['Point'], default: 'Point' },
+    coordinates: { type: [Number], required: true }, // [longitude, latitude]
+  },
+  { _id: false }
+);
+
 const checkInSchema = new mongoose.Schema(
   {
     userId: {
@@ -25,19 +33,25 @@ const checkInSchema = new mongoose.Schema(
       type: Number, // in minutes
       default: null,
     },
+    // Optional GeoJSON point. Must default to undefined: a nested path with a default
+    // 'Point' type would save { type: 'Point', coordinates: [] } on every check-in
+    // without GPS, which the 2dsphere index rejects.
     location: {
-      type: {
-        type: String,
-        enum: ['Point'],
-        default: 'Point',
-      },
-      coordinates: {
-        type: [Number], // [longitude, latitude]
-      },
+      type: pointSchema,
+      default: undefined,
     },
+    // true only when the device's GPS put the user within range of their saved gym
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    distanceFromGym: {
+      type: Number, // metres, null when no GPS was sent
+      default: null,
+    },
+    locationAccuracy: {
+      type: Number, // metres, as reported by the device
+      default: null,
     },
     lockInMatchId: {
       type: mongoose.Schema.Types.ObjectId,

@@ -65,9 +65,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    refreshToken: {
-      type: String,
-      default: null,
+    // SHA-256 hashes of currently valid refresh tokens, one per signed-in device (newest last).
+    refreshTokens: {
+      type: [String],
+      default: [],
       select: false,
     },
     notificationPreferences: {

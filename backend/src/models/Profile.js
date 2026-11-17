@@ -74,6 +74,12 @@ const profileSchema = new mongoose.Schema(
         required: true,
       },
     },
+    // When gymLocation last changed. Used to stop users moving their gym to wherever
+    // they happen to be in order to pass GPS check-in. null = never set from a device.
+    gymLocationUpdatedAt: {
+      type: Date,
+      default: null,
+    },
     gymName: {
       type: String,
       default: '',

@@ -8,6 +8,6 @@ router.use(auth()); // All routes require authentication
 
 router.get('/', badgeController.getBadges);
 router.get('/my', badgeController.getMyBadges);
-router.post('/seed', badgeController.seedBadges); // System seeding endpoint
+router.post('/seed', auth('admin'), badgeController.seedBadges); // Admin only - use `npm run seed` locally
 
 module.exports = router;

@@ -1,20 +1,34 @@
 /**
- * Seeds demo users with profiles at nearby coordinates for local MVP testing.
+ * One-stop dev seed: badges -> challenges -> demo users (with a 5-day streak for Alex).
  * Usage: npm run seed
+ *
+ * Safe to re-run. It only resets data belonging to the three demo accounts; it never
+ * touches other users' matches, chats or check-ins (the old version wiped those
+ * collections entirely, which is dangerous against a shared Atlas cluster).
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-const Profile = require('../models/Profile');
-const Streak = require('../models/Streak');
-const CheckIn = require('../models/CheckIn');
-const BuddyRequest = require('../models/BuddyRequest');
-const Match = require('../models/Match');
-const Conversation = require('../models/Conversation');
+const {
+  User,
+  Profile,
+  Streak,
+  CheckIn,
+  BuddyRequest,
+  Match,
+  Conversation,
+  Message,
+  Session,
+  ChallengeParticipation,
+  UserBadge,
+} = require('../models');
+const badgeService = require('../services/badge.service');
+const { seedChallenges } = require('./seeders/challenges');
 const { todayUTC, addDaysUTC } = require('../utils/date');
+const { calcLevel } = require('../utils/xp');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/lockin';
+const DEMO_STREAK_DAYS = 5;
+const DEMO_XP_PER_CHECKIN = 150;
 
 const DEMO_USERS = [
   {
@@ -86,88 +100,133 @@ async function upsertDemoUser(demo) {
       lastName: demo.lastName,
       isOnboarded: true,
     });
-    await Streak.create({ userId: user._id });
   } else {
     user.isOnboarded = true;
     await user.save();
   }
 
-  let profile = await Profile.findOne({ userId: user._id });
-  if (profile) {
-    Object.assign(profile, demo.profile);
-    await profile.save();
-  } else {
-    profile = await Profile.create({ userId: user._id, ...demo.profile });
-  }
+  // Reset gamification state so re-running gives the same result instead of stacking XP
+  const profileData = { ...demo.profile, xp: 0, level: 1 };
+  await Profile.findOneAndUpdate(
+    { userId: user._id },
+    { $set: { userId: user._id, ...profileData } },
+    { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+  );
+  await Streak.findOneAndUpdate(
+    { userId: user._id },
+    {
+      $set: {
+        currentStreak: 0,
+        longestStreak: 0,
+        lastCheckInDate: null,
+        totalCheckIns: 0,
+        weeklyCheckIns: 0,
+        monthlyCheckIns: 0,
+        streakHistory: [],
+      },
+    },
+    { upsert: true, setDefaultsOnInsert: true }
+  );
 
   return user;
+}
+
+/**
+ * Removes matches, chats, sessions, check-ins etc. that involve any demo account.
+ */
+async function resetDemoActivity(userIds) {
+  const matches = await Match.find({ users: { $in: userIds } }).select('_id');
+  const matchIds = matches.map((m) => m._id);
+  const conversations = await Conversation.find({
+    $or: [{ participants: { $in: userIds } }, { matchId: { $in: matchIds } }],
+  }).select('_id');
+  const conversationIds = conversations.map((c) => c._id);
+
+  await Promise.all([
+    Message.deleteMany({ conversationId: { $in: conversationIds } }),
+    Conversation.deleteMany({ _id: { $in: conversationIds } }),
+    Session.deleteMany({ $or: [{ participants: { $in: userIds } }, { matchId: { $in: matchIds } }] }),
+    BuddyRequest.deleteMany({ $or: [{ senderId: { $in: userIds } }, { receiverId: { $in: userIds } }] }),
+    CheckIn.deleteMany({ userId: { $in: userIds } }),
+    ChallengeParticipation.deleteMany({ userId: { $in: userIds } }),
+    UserBadge.deleteMany({ userId: { $in: userIds } }),
+  ]);
+  await Match.deleteMany({ _id: { $in: matchIds } });
+}
+
+async function seedDemoStreak(user) {
+  const today = todayUTC();
+  const dates = Array.from({ length: DEMO_STREAK_DAYS }, (_, i) => addDaysUTC(today, i - (DEMO_STREAK_DAYS - 1)));
+
+  await CheckIn.insertMany(
+    dates.map((d) => ({
+      userId: user._id,
+      date: d,
+      checkInTime: new Date(`${d}T07:30:00.000Z`),
+      isVerified: true,
+      xpEarned: DEMO_XP_PER_CHECKIN,
+      notes: 'Seeded check-in',
+    }))
+  );
+
+  await Streak.updateOne(
+    { userId: user._id },
+    {
+      $set: {
+        currentStreak: DEMO_STREAK_DAYS,
+        longestStreak: DEMO_STREAK_DAYS,
+        lastCheckInDate: today,
+        totalCheckIns: DEMO_STREAK_DAYS,
+        weeklyCheckIns: DEMO_STREAK_DAYS,
+        monthlyCheckIns: DEMO_STREAK_DAYS,
+      },
+    }
+  );
+
+  const xp = DEMO_XP_PER_CHECKIN * DEMO_STREAK_DAYS;
+  await Profile.updateOne(
+    { userId: user._id },
+    { $set: { xp, level: calcLevel(1, xp), consistencyScore: 60 } }
+  );
+
+  // Award whatever badges those check-ins qualify for (e.g. "First Step")
+  await badgeService.checkAndAwardBadges(user._id);
 }
 
 async function seed() {
   await mongoose.connect(MONGODB_URI);
   console.log('Connected to MongoDB');
 
-  await BuddyRequest.deleteMany({});
-  await Conversation.deleteMany({});
-  await Match.deleteMany({});
-  await CheckIn.deleteMany({});
+  const badges = await badgeService.seedBadges();
+  console.log(`Badges: ${badges.seededCount} created`);
+
+  const challenges = await seedChallenges();
+  console.log(`Challenges: ${challenges.created} created, ${challenges.refreshed} re-opened`);
+
+  // Look up existing demo accounts first so their old activity is cleared before re-seeding
+  const existing = await User.find({ email: { $in: DEMO_USERS.map((d) => d.email) } }).select('_id');
+  await resetDemoActivity(existing.map((u) => u._id));
 
   const users = [];
   for (const demo of DEMO_USERS) {
-    const user = await upsertDemoUser(demo);
-    users.push(user);
-    console.log(`Seeded: ${demo.email}`);
+    // eslint-disable-next-line no-await-in-loop
+    users.push(await upsertDemoUser(demo));
+    console.log(`Demo user: ${demo.email}`);
   }
 
-  // Seed check-ins for the first demo user (to demonstrate streak + metrics on Home)
-  const demoUser = users[0];
-  if (demoUser) {
-    const profile = await Profile.findOne({ userId: demoUser._id });
-    const streak = await Streak.findOne({ userId: demoUser._id });
-    const today = todayUTC();
-    const dates = [addDaysUTC(today, -4), addDaysUTC(today, -3), addDaysUTC(today, -2), addDaysUTC(today, -1), today];
-
-    for (const d of dates) {
-      // Unique index prevents dupes; ignore if already exists
-      // eslint-disable-next-line no-await-in-loop
-      await CheckIn.create({
-        userId: demoUser._id,
-        date: d,
-        checkInTime: new Date(),
-        isVerified: true,
-        xpEarned: 150,
-        notes: 'Seeded check-in',
-      }).catch(() => {});
-    }
-
-    if (streak) {
-      streak.currentStreak = 5;
-      streak.longestStreak = Math.max(streak.longestStreak || 0, 5);
-      streak.lastCheckInDate = today;
-      streak.totalCheckIns = (streak.totalCheckIns || 0) + 5;
-      streak.weeklyCheckIns = 5;
-      streak.monthlyCheckIns = 5;
-      await streak.save();
-    }
-
-    if (profile) {
-      profile.xp = (profile.xp || 0) + 150 * 5;
-      // keep simple level progression consistent with client (level * 1000)
-      while (profile.xp >= (profile.level || 1) * 1000) {
-        profile.level = (profile.level || 1) + 1;
-      }
-      profile.consistencyScore = 60;
-      await profile.save();
-    }
+  if (users[0]) {
+    await seedDemoStreak(users[0]);
+    console.log(`Seeded a ${DEMO_STREAK_DAYS}-day streak for ${DEMO_USERS[0].email}`);
   }
 
-  console.log('\nDemo accounts (password: password123):');
+  console.log(`\nDemo accounts (password: ${DEMO_USERS[0].password}):`);
   DEMO_USERS.forEach((d) => console.log(`  - ${d.email}`));
   console.log('\nSeed complete.');
   await mongoose.disconnect();
 }
 
-seed().catch((err) => {
+seed().catch(async (err) => {
   console.error('Seed failed:', err);
+  await mongoose.disconnect().catch(() => {});
   process.exit(1);
 });

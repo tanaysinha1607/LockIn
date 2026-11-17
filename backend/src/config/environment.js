@@ -18,6 +18,9 @@ const envSchema = Joi.object({
   OPENAI_ORG_ID: Joi.string().allow('').optional(),
   AI_ENABLED: Joi.boolean().default(true),
   AI_DAILY_BUDGET_CENTS: Joi.number().default(500),
+  CHECKIN_RADIUS_METERS: Joi.number().min(50).max(5000).default(300),
+  CHECKIN_REQUIRE_GPS: Joi.boolean().optional(),
+  GYM_LOCATION_COOLDOWN_DAYS: Joi.number().min(0).max(365).default(7),
 }).unknown(true);
 
 const { error, value: envVars } = envSchema.validate(process.env, { abortEarly: false });
@@ -41,6 +44,12 @@ module.exports = {
     refreshSecret: envVars.REFRESH_TOKEN_SECRET,
     accessExpiration: envVars.ACCESS_TOKEN_EXPIRE,
     refreshExpiration: envVars.REFRESH_TOKEN_EXPIRE
+  },
+  checkIn: {
+    radiusMeters: envVars.CHECKIN_RADIUS_METERS,
+    // Default: GPS required in production, optional elsewhere so scripts and desktop testing work
+    requireGps: envVars.CHECKIN_REQUIRE_GPS ?? envVars.NODE_ENV === 'production',
+    gymLocationCooldownDays: envVars.GYM_LOCATION_COOLDOWN_DAYS,
   },
   openai: {
     apiKey: envVars.OPENAI_API_KEY,

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { COLORS, SPACING } from '../theme/theme';
 import { userApi, authApi, checkInApi } from '../utils/api';
+import { getCurrentCoords } from '../utils/location';
 
 export default function HomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -17,6 +18,9 @@ export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [checkInDone, setCheckInDone] = useState(false);
   const [checkInLoading, setCheckInLoading] = useState(false);
+  const [checkInVerified, setCheckInVerified] = useState(null); // true / false / null (unknown)
+  const [checkInError, setCheckInError] = useState(null); // { message, code }
+  const [lastPosition, setLastPosition] = useState(null); // position used for the last attempt
 
   useEffect(() => {
     fetchUserData();
@@ -35,13 +39,15 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const handleCheckIn = async () => {
-    setCheckInLoading(true);
-    const result = await checkInApi.create();
-    setCheckInLoading(false);
+  const submitCheckIn = async (position, locationErr) => {
+    const result = await checkInApi.create(
+      position ? { location: { coordinates: position.coordinates, accuracy: position.accuracy } } : {}
+    );
 
     if (result.success && result.data) {
       setCheckInDone(true);
+      setCheckInVerified(Boolean(result.data.checkIn?.isVerified));
+      setCheckInError(null);
       setProfile((prev) =>
         prev
           ? {
@@ -53,11 +59,52 @@ export default function HomeScreen({ navigation }) {
           : prev
       );
       setAccountability(result.data.summary || accountability);
-    } else if (!result.success) {
-      // If backend rejects duplicate, reflect current state by reloading.
+      return;
+    }
+
+    if (result.code === 'LOCATION_REQUIRED' && locationErr) {
+      // Server needs GPS; explain the device-side reason (permission off, timeout, ...)
+      setCheckInError({ message: locationErr.message, code: result.code });
+    } else if (result.code) {
+      setCheckInError({ message: result.message, code: result.code });
+    } else if (result.statusCode === 400 && /already checked in/i.test(result.message || '')) {
       await fetchUserData();
+    } else {
+      setCheckInError({ message: result.message || 'Check-in failed. Please try again.', code: null });
     }
   };
+
+  const handleCheckIn = async () => {
+    setCheckInLoading(true);
+    setCheckInError(null);
+
+    let position = null;
+    let locationErr = null;
+    try {
+      position = await getCurrentCoords();
+    } catch (err) {
+      locationErr = err;
+    }
+    setLastPosition(position);
+
+    await submitCheckIn(position, locationErr);
+    setCheckInLoading(false);
+  };
+
+  // Shown after a TOO_FAR_FROM_GYM rejection: the user says they've switched gyms
+  const handleMoveGymHere = async () => {
+    if (!lastPosition) return;
+    setCheckInLoading(true);
+    const moved = await userApi.updateGymLocation({ coordinates: lastPosition.coordinates });
+    if (moved.success) {
+      setProfile((prev) => (prev ? { ...prev, gymLocation: moved.data?.profile?.gymLocation } : prev));
+      await submitCheckIn(lastPosition, null);
+    } else {
+      setCheckInError({ message: moved.message, code: 'GYM_MOVE_FAILED' });
+    }
+    setCheckInLoading(false);
+  };
+
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -112,13 +159,30 @@ export default function HomeScreen({ navigation }) {
       {/* Daily Accountability check-in */}
       <View style={styles.checkInCard}>
         <Text style={styles.sectionTitle}>Daily Accountability</Text>
-        <Text style={styles.sectionDesc}>Verify your gym attendance today to keep your streak alive.</Text>
+        <Text style={styles.sectionDesc}>
+          Check in from your gym to keep your streak alive — we confirm it with your location.
+        </Text>
         
         {checkInDone ? (
           <View style={styles.checkInSuccess}>
-            <Text style={styles.successText}>✓ Check-In Verified</Text>
+            <Text style={styles.successText}>
+              {checkInVerified === false ? '✓ Checked in (location not verified)' : '✓ Checked in at your gym'}
+            </Text>
           </View>
         ) : (
+          <>
+          {checkInError && (
+            <View style={styles.checkInErrorBox}>
+              <Text style={styles.checkInErrorText}>{checkInError.message}</Text>
+              {checkInError.code === 'TOO_FAR_FROM_GYM' && lastPosition && (
+                <TouchableOpacity onPress={handleMoveGymHere} disabled={checkInLoading}>
+                  <Text style={styles.checkInErrorLink}>
+                    Switched gyms? Make this my gym and check in (once per week)
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
           <TouchableOpacity 
             style={styles.checkInButton} 
             onPress={handleCheckIn}
@@ -127,9 +191,12 @@ export default function HomeScreen({ navigation }) {
             {checkInLoading ? (
               <ActivityIndicator color={COLORS.text} />
             ) : (
-              <Text style={styles.checkInButtonText}>CHECK-IN AT GYM</Text>
+              <Text style={styles.checkInButtonText}>
+                {checkInError ? 'TRY AGAIN' : 'CHECK-IN AT GYM'}
+              </Text>
             )}
           </TouchableOpacity>
+          </>
         )}
       </View>
 
@@ -335,6 +402,24 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: '800',
     letterSpacing: 1,
+  },
+  checkInErrorBox: {
+    backgroundColor: 'rgba(244, 63, 94, 0.1)',
+    borderColor: COLORS.accent,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  checkInErrorText: {
+    color: COLORS.text,
+    fontSize: 14,
+  },
+  checkInErrorLink: {
+    color: COLORS.secondary,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: SPACING.sm,
   },
   checkInSuccess: {
     backgroundColor: 'rgba(16, 185, 129, 0.1)',

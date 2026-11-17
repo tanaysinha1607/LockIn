@@ -25,7 +25,11 @@ const updateProfile = {
     }).required(),
     workoutDuration: Joi.number().min(15).max(360).default(60),
     gymLocation: Joi.object().keys({
-      coordinates: Joi.array().items(Joi.number().min(-180).max(180)).length(2).required().description('[longitude, latitude]'),
+      coordinates: Joi.array()
+        .ordered(Joi.number().min(-180).max(180).required(), Joi.number().min(-90).max(90).required())
+        .length(2)
+        .required()
+        .description('[longitude, latitude]'),
     }).required(),
     gymName: Joi.string().allow(''),
     gymAddress: Joi.string().allow(''),
@@ -48,6 +52,19 @@ const updateProfile = {
   })
 };
 
+const updateGymLocation = {
+  body: Joi.object().keys({
+    coordinates: Joi.array()
+      .ordered(Joi.number().min(-180).max(180).required(), Joi.number().min(-90).max(90).required())
+      .length(2)
+      .required()
+      .description('[longitude, latitude]'),
+    gymName: Joi.string().max(100).allow('').optional(),
+    gymAddress: Joi.string().max(200).allow('').optional(),
+  }),
+};
+
 module.exports = {
   updateProfile,
+  updateGymLocation,
 };

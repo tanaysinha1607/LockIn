@@ -50,7 +50,14 @@ export const clearAuthTokens = async () => {
   }
 };
 
-const refreshAccessToken = async () => {
+export const getAccessToken = () => accessToken;
+
+// Single in-flight refresh shared by every caller. Refresh tokens are single-use on the
+// server, so if two requests 401 at once and both refreshed, the second would present an
+// already-rotated token, the server would treat it as theft, and the user would be logged out.
+let refreshPromise = null;
+
+const doRefresh = async () => {
   try {
     const refreshToken = await AsyncStorage.getItem('refresh_token');
     if (!refreshToken) throw new Error('No refresh token available');
@@ -73,9 +80,19 @@ const refreshAccessToken = async () => {
   } catch (error) {
     console.warn('Token refresh failed, logging out:', error);
     await clearAuthTokens();
+    disconnectSocket();
     if (logoutCallback) logoutCallback();
     return null;
   }
+};
+
+export const refreshAccessToken = () => {
+  if (!refreshPromise) {
+    refreshPromise = doRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 };
 
 const buildAuthHeaders = (token, extraHeaders = {}) => ({
@@ -97,8 +114,10 @@ export const apiCall = async (endpoint, options = {}) => {
   try {
     let response = await makeRequest(tokenForRequest);
 
-    if (response.status === 401 && accessToken) {
-      const newAccessToken = await refreshAccessToken();
+    if (response.status === 401 && tokenForRequest) {
+      // Another request may already have refreshed while this one was in flight
+      const newAccessToken =
+        accessToken && accessToken !== tokenForRequest ? accessToken : await refreshAccessToken();
       if (newAccessToken) {
         response = await makeRequest(newAccessToken);
       }
@@ -111,6 +130,7 @@ export const apiCall = async (endpoint, options = {}) => {
         success: false,
         message: data.message || 'An error occurred',
         statusCode: response.status,
+        code: data.code || null,
       };
     }
 
@@ -165,6 +185,13 @@ export const userApi = {
     apiCall('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(profileData),
+    }),
+
+  // { coordinates: [lng, lat], gymName?, gymAddress? } - limited to once per 7 days
+  updateGymLocation: (payload) =>
+    apiCall('/users/gym-location', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
     }),
 };
 

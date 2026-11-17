@@ -37,6 +37,10 @@ const initializeSocket = (server) => {
     }
     onlineUsers.get(userId).add(socket.id);
 
+    // Personal room: lets the server reach every device of this user (e.g. to join a
+    // conversation created after they connected).
+    socket.join(`user:${userId}`);
+
     // 2. Automatically join all conversation rooms the user is part of
     try {
       const conversations = await Conversation.find({
@@ -65,14 +69,19 @@ const initializeSocket = (server) => {
     });
 
     // 5. Handle typing indicators
-    socket.on('chat:typing', ({ conversationId }) => {
+    // Only relay typing events for conversations this socket actually belongs to
+    const inConversation = (conversationId) => socket.rooms.has(`conv:${conversationId}`);
+
+    socket.on('chat:typing', ({ conversationId } = {}) => {
+      if (!inConversation(conversationId)) return;
       socket.to(`conv:${conversationId}`).emit('chat:typing', {
         conversationId,
         userId,
       });
     });
 
-    socket.on('chat:stop_typing', ({ conversationId }) => {
+    socket.on('chat:stop_typing', ({ conversationId } = {}) => {
+      if (!inConversation(conversationId)) return;
       socket.to(`conv:${conversationId}`).emit('chat:stop_typing', {
         conversationId,
         userId,
@@ -80,7 +89,7 @@ const initializeSocket = (server) => {
     });
 
     // 6. Handle sending message via WebSocket
-    socket.on('chat:send', async ({ conversationId, content, type }, callback) => {
+    socket.on('chat:send', async ({ conversationId, content, type } = {}, callback) => {
       try {
         // Simple socket rate limit check: max 30 messages per minute
         if (isRateLimited(userId)) {
@@ -90,8 +99,15 @@ const initializeSocket = (server) => {
           return;
         }
 
-        // Save message to DB using chat service
-        const message = await chatService.sendMessage(socket.user._id, conversationId, content, type);
+        if (typeof content !== 'string' || !content.trim() || content.length > 2000) {
+          if (typeof callback === 'function') {
+            callback({ success: false, error: 'Message must be 1-2000 characters.' });
+          }
+          return;
+        }
+
+        // Save message to DB using chat service (also verifies membership)
+        const message = await chatService.sendMessage(socket.user._id, conversationId, content.trim(), type);
 
         // Broadcast message to room (including sender to confirm receipt across tabs/devices)
         io.to(`conv:${conversationId}`).emit('chat:message', message);
@@ -109,7 +125,7 @@ const initializeSocket = (server) => {
     });
 
     // 7. Handle read receipts
-    socket.on('chat:read', async ({ conversationId }) => {
+    socket.on('chat:read', async ({ conversationId } = {}) => {
       try {
         await chatService.markAsRead(socket.user._id, conversationId);
         // Notify other user in room that messages are read
@@ -199,7 +215,19 @@ const isRateLimited = (userId) => {
   return false;
 };
 
+/**
+ * Add every connected socket of the given users to a conversation room.
+ * Call after creating a conversation so both buddies get live messages without reconnecting.
+ */
+const joinUsersToConversation = (userIds, conversationId) => {
+  if (!io) return;
+  userIds.forEach((id) => {
+    io.in(`user:${id}`).socketsJoin(`conv:${conversationId}`);
+  });
+};
+
 module.exports = {
   initializeSocket,
   getIO,
+  joinUsersToConversation,
 };

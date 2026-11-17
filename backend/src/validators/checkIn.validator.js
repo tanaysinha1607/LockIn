@@ -7,7 +7,12 @@ const checkIn = {
       location: Joi.object()
         .keys({
           type: Joi.string().valid('Point').optional(),
-          coordinates: Joi.array().items(Joi.number()).length(2).optional(),
+          coordinates: Joi.array()
+            .ordered(Joi.number().min(-180).max(180).required(), Joi.number().min(-90).max(90).required())
+            .length(2)
+            .required()
+            .description('[longitude, latitude]'),
+          accuracy: Joi.number().min(0).max(100000).allow(null).optional().description('metres'),
         })
         .optional(),
       mood: Joi.string()

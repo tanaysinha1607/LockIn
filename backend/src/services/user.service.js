@@ -1,6 +1,35 @@
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 const AppError = require('../utils/AppError');
+const config = require('../config/environment');
+const { distanceMeters } = require('../utils/geo');
+
+// Moves smaller than this are GPS jitter, not a new gym
+const SAME_GYM_METERS = 50;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Throws if the user changed their gym too recently. Without a cooldown, GPS check-in
+ * could be beaten by setting your "gym" to wherever you are before checking in.
+ */
+const assertGymChangeAllowed = (profile) => {
+  const cooldownDays = config.checkIn.gymLocationCooldownDays;
+  if (!profile.gymLocationUpdatedAt || cooldownDays === 0) return;
+
+  const nextAllowed = new Date(profile.gymLocationUpdatedAt.getTime() + cooldownDays * DAY_MS);
+  if (nextAllowed > new Date()) {
+    throw new AppError(
+      `You can only change your gym once every ${cooldownDays} days. You can change it again on ${nextAllowed.toDateString()}.`,
+      429
+    );
+  }
+};
+
+const isNewGymLocation = (profile, coordinates) => {
+  const current = profile?.gymLocation?.coordinates;
+  if (!Array.isArray(current) || current.length !== 2) return true;
+  return distanceMeters(current, coordinates) > SAME_GYM_METERS;
+};
 
 /**
  * Get user by id
@@ -47,7 +76,14 @@ const updateUserProfile = async (userId, profileBody) => {
 
   let profile = await Profile.findOne({ userId });
 
+  const newCoords = profileBody.gymLocation?.coordinates;
+
   if (profile) {
+    if (newCoords && isNewGymLocation(profile, newCoords)) {
+      assertGymChangeAllowed(profile);
+      profileBody.gymLocationUpdatedAt = new Date();
+    }
+
     // Update existing profile
     Object.assign(profile, profileBody);
     await profile.save();
@@ -56,6 +92,7 @@ const updateUserProfile = async (userId, profileBody) => {
     profile = await Profile.create({
       userId,
       ...profileBody,
+      gymLocationUpdatedAt: newCoords ? new Date() : null,
     });
   }
 
@@ -71,7 +108,27 @@ const updateUserProfile = async (userId, profileBody) => {
   };
 };
 
+/**
+ * Set the gym to a new point (usually the device's current position, while at the gym).
+ * Limited to once per cooldown period.
+ */
+const updateGymLocation = async (userId, { coordinates, gymName, gymAddress }) => {
+  const profile = await getUserProfile(userId);
+
+  if (isNewGymLocation(profile, coordinates)) {
+    assertGymChangeAllowed(profile);
+    profile.gymLocation = { type: 'Point', coordinates };
+    profile.gymLocationUpdatedAt = new Date();
+  }
+  if (gymName !== undefined) profile.gymName = gymName;
+  if (gymAddress !== undefined) profile.gymAddress = gymAddress;
+
+  await profile.save();
+  return profile;
+};
+
 module.exports = {
+  updateGymLocation,
   getUserById,
   getUserProfile,
   updateUserProfile,

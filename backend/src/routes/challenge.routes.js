@@ -12,6 +12,6 @@ router.get('/', challengeController.getChallenges);
 router.get('/my', challengeController.getMyChallenges);
 router.post('/:challengeId/join', validate(challengeValidator.joinChallenge), challengeController.joinChallenge);
 router.get('/:challengeId/leaderboard', validate(challengeValidator.joinChallenge), challengeController.getChallengeLeaderboard);
-router.post('/evaluate', challengeController.evaluateChallenges); // Manual/admin trigger
+router.post('/evaluate', auth('admin'), challengeController.evaluateChallenges); // Admin only - also runs hourly from server.js
 
 module.exports = router;

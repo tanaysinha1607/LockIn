@@ -1,77 +1,79 @@
 # LockIn — Project Status
 
-**Last updated:** June 18, 2026  
-**Phase:** Real-time chat polish (Phase 4)
+**Last updated:** November 17, 2026
+**Phase:** 7 — Production polish & consolidation (Phases 1–6 complete)
 
 ---
 
-## Completed features
+## Phase summary
 
-### Backend
-- User registration, login, JWT access/refresh tokens, logout (refresh rotation + hashed storage)
-- Profile create/update via `PUT /users/profile` with Joi validation
-- Multi-stage buddy matching (`GET /matches/suggestions`) with geospatial query + compatibility scoring
-- Buddy requests: send, accept/reject, incoming/outgoing lists, active matches
-- On accept: creates `Match` + `Conversation` records, enabling real-time chat
-- **Real-Time Chat:** REST API history, read receipts, unread message badges, and Socket.io server with JWT verification, presence tracking (online/offline), typing indicators, and message rate-limiting
-- Daily check-ins: `POST /check-ins` (once-per-day enforcement)
-- Streak engine: current + longest streak, reset on missed days, history tracking
-- XP engine: base XP per check-in + milestone bonuses; stored on `Profile` (`xp`, `level`)
-- Accountability metrics: weekly/monthly attendance %, consistency score calculation
-- `GET /users/me` now returns `accountability` summary (today status, metrics, streak, XP)
-- Security baseline: Helmet, mongo sanitize, centralized errors, Winston logging
-- Buddy request route validation (Joi)
-- Demo seed script: `npm run seed` (3 users + seeded check-ins for demo streak)
-- API verification script: `npm run verify` (auth + profile + check-ins + matching + buddy + chat REST flow)
-- Socket.io verification: `npm run verify:phase4:syntax` (no MongoDB) and `npm run verify:phase4` (full integration)
-
-### Mobile (Expo)
-- Splash auth routing (`/users/me` + `isOnboarded`)
-- Register / login / logout with AsyncStorage tokens
-- Onboarding aligned with backend API contract (`fitnessConstants.js`)
-- Home dashboard (`/users/me`) with real XP/streak/attendance + check-in button, plus Chat shortcut
-- Buddy screen wired to real APIs:
-  - **Discover** — match suggestions + send request
-  - **Requests** — incoming with accept/decline
-  - **My Buddies** — active matches with direct "Chat Buddy" button
-- **Real-Time Messaging UI:** Completed ChatListScreen and ChatScreen with dynamic bubble rendering, online status indicators, active typing bubbles, timestamp day headers, unread count badges, and inverted flatlists with infinite scroll-up pagination
-- API client: token refresh retry fix, `matchApi` + `buddyApi` + `checkInApi` + `chatApi`, configurable `BASE_URL` via `app.json` `extra.apiUrl`
-- Socket.io client wrapper: manages automatic reconnection, connects on login/splash, disconnects on logout
-- Chat list bug fixes: correct buddy data shape, unread badge logic, text avatars
-- Chat screen: deduplicates own messages received via socket echo
-
+| Phase | Scope | Status |
+|-------|-------|--------|
+| 1–3 | Auth, onboarding, geospatial matching, buddy requests, check-ins, streaks, XP | ✅ Done |
+| 4 | Real-time chat (Socket.io + REST): presence, typing, read receipts, unread badges, pagination | ✅ Done |
+| 5 | Shared workout sessions, challenges, badges, global/buddy leaderboards | ✅ Done |
+| 6 | AI Coach: workout plans, diet plans, coach chat (OpenAI `gpt-4o` + template fallback) | ✅ Done |
+| 7 | Seeding, rate limiting, scripts, hardening, docs | ✅ Done (see below) |
 
 ---
 
-## In progress
+## Phase 7 — what changed
 
-| Area | Status |
-|------|--------|
-| Redis rate limiting | Client connects; limiter not wired in Express |
-| Physical device testing | Requires LAN IP in `app.json` `extra.apiUrl` |
+**Consolidation**
+- `npm run seed` now seeds everything: 7 badges → 3 challenges → 3 demo users + a 5-day streak for Alex.
+  It is safe to re-run and **only resets demo-account data** (the old seed deleted every match, chat and check-in in the database).
+  Expired seeded challenges are re-opened with fresh dates.
+- `npm run seed:badges` / `npm run seed:challenges` still exist for running one step alone.
+- New scripts: `verify:phase5`, `verify:phase6`, `verify:all`.
+
+**Security & hardening**
+- Rate limiting (`src/middleware/rateLimit.middleware.js`): login, register, refresh/logout per IP; AI endpoints per user.
+  Uses Redis when it's connected, in-memory otherwise. Limits are strict in production, loose in development; override with `RATE_LIMIT_LOGIN`, `RATE_LIMIT_REGISTER`, `RATE_LIMIT_TOKEN`, `RATE_LIMIT_AI`.
+- Refresh tokens: one stored per device (up to 5), SHA-256 hashed, single-use with reuse detection. Logging in on the phone no longer logs out the web app.
+  ⚠️ Existing sessions are invalidated by this change — everyone logs in once more.
+- Register no longer returns the password hash in the response.
+- `POST /badges/seed` and `POST /challenges/evaluate` are admin-only (were open to any user).
+- `POST /ai/chat` input validated (message ≤ 1000 chars, history ≤ 100 items).
+- Socket typing events are only relayed for conversations the sender belongs to; socket messages are length-checked.
+- `GET /health` (DB + Redis status) and graceful shutdown on SIGINT/SIGTERM.
+
+**Bug fixes**
+- Challenges: check-in-count and buddy-vs-buddy progress only ever counted *today's* check-in (`todayUTC()` ignored its argument). Progress now counts the whole challenge window.
+- Challenges never ended on their own. The server now settles challenges hourly.
+- New buddies couldn't chat in real time until they reconnected (sockets only joined rooms at connect). Accepting a request now joins both users' live sockets to the new room.
+- XP could be lost when two awards landed together (read-modify-save). All XP awards are now one atomic update (`src/utils/xp.js`), and a shared session can't be completed twice.
+- Check-ins without GPS stored `location: { type: 'Point', coordinates: [] }`, which a 2dsphere index rejects. Location is now omitted unless valid coordinates are sent.
+- Latitude validation accepted ±180.
+- Mobile: concurrent 401s could fire two refreshes; the second reused a rotated token and logged the user out. Refresh is now single-flight.
+- Mobile: socket reconnects after 15 min used the expired startup token and failed permanently. The socket now uses the current token and refreshes on auth errors.
 
 ---
 
-## Pending features (not started)
+## GPS check-in & real onboarding (Nov 17)
 
-- OpenAI AI coach (WorkoutPlan, DietPlan models exist; mobile UI exists, but needs real backend API integration)
-- Push notifications (FCM)
-- Challenges, badges, leaderboards (models exist, but need business logic/routes and UI integration)
-- Password reset / email verification
-- Automated tests (Jest/Supertest)
-- Production hardening (CORS allowlist, rate limits, health check)
+- Onboarding step 4 asks for time of day (6 slots) and session length; step 5 saves the gym from the device's GPS ("Use my current location", address filled in on phones). No more hard-coded New Delhi coordinates or 07:00–09:00.
+- `POST /check-ins` takes `location: { coordinates: [lng, lat], accuracy }`. It is accepted only within `CHECKIN_RADIUS_METERS` (300 m) of the saved gym, plus up to 100 m of reported GPS accuracy. Errors carry a `code`: `TOO_FAR_FROM_GYM`, `LOCATION_REQUIRED`, `GYM_NOT_SET`.
+- No GPS: rejected in production; in development it is saved with `isVerified: false`, so the verify scripts still pass. Override with `CHECKIN_REQUIRE_GPS`.
+- `PUT /users/gym-location` moves the gym, at most once per `GYM_LOCATION_COOLDOWN_DAYS` (7). `PUT /users/profile` enforces the same rule. Moves under 50 m don't count.
+- Home: check-in reads GPS first, explains permission/too-far errors, and offers "Switched gyms? Make this my gym" after a too-far rejection.
+- Check-ins store `distanceFromGym` and `locationAccuracy`.
+- Mobile needs `npx expo install expo-location` after pulling.
 
 ---
 
-## Known issues
+## Known gaps (not yet built)
 
-| Issue | Severity | Notes |
-|-------|----------|-------|
-| MongoDB required locally | High | Server exits if MongoDB is unavailable. If MongoDB isn’t installed, verification scripts can’t be run. |
-| Redis optional but noisy logs | Low | Server runs without Redis; connection errors logged |
-| AI Coach screen uses fake replies | Low | Intentionally deferred |
-| No root monorepo README | Low | Use this file + per-app setup |
-| Gender filter in matching | Low | Works when `User.gender` is set; optional on register |
+| Gap | Impact | Notes |
+|-----|--------|-------|
+| Accounts created before Nov 17 still have the New Delhi placeholder gym | Medium | Their first far-away check-in offers to move the gym; legacy profiles can move once without waiting. |
+| GPS can be spoofed on rooted/jailbroken phones or via browser dev tools | Low | Acceptable for now; mock-location detection needs native checks. |
+| Notifications are written to the DB but never delivered | Medium | No `/notifications` endpoint, no push. |
+| No profile editing after onboarding | Medium | `PUT /users/profile` exists but requires the full profile. |
+| No password reset / email verification | Medium | |
+| Mutual daily check-ins don't increase `lockInCount` | Low | Only completed scheduled sessions do. `CheckIn.isLockIn` and `Streak.totalLockIns` are never set. |
+| `AI_DAILY_BUDGET_CENTS` is not enforced | Low | Per-user rate limit caps spend for now. |
+| CORS and Socket.io CORS allow any origin | Low | Restrict before a public deploy. |
+| No automated tests (Jest/Supertest) | Medium | Only the end-to-end verify scripts. |
 
 ---
 
@@ -79,26 +81,24 @@
 
 ### Prerequisites
 - Node.js 18+
-- MongoDB running on `mongodb://127.0.0.1:27017`
-- Redis optional (recommended for future rate limiting)
+- MongoDB (the project uses MongoDB Atlas via `MONGODB_URI` in `backend/.env`)
+- Redis optional — rate limits fall back to memory without it
 
 ### Backend
 ```bash
 cd backend
-cp .env.example .env   # configure secrets
+cp .env.example .env     # configure secrets
 npm install
-npm run dev            # or npm start
-npm run seed           # optional demo users
-npm run verify         # API integration checks (requires server + MongoDB)
-npm run verify:phase4:syntax  # chat/socket module load test (no MongoDB)
-npm run verify:phase4    # full socket integration (requires MongoDB)
+npm run seed             # badges, challenges, demo users
+npm run dev              # http://127.0.0.1:5000  (health: /health)
+npm run verify:all       # mvp + phase 4/5/6 checks (server must be running)
 ```
 
-### Mobile
+### Mobile / Web
 ```bash
 cd mobile
 npm install
-npm start
+npm run web              # or npm start for Expo Go
 ```
 
 For a **physical device**, set your machine's LAN IP in `mobile/app.json`:
@@ -115,26 +115,9 @@ For a **physical device**, set your machine's LAN IP in `mobile/app.json`:
 
 ---
 
-## Next recommended phase
+## Next recommended work
 
-**Phase: OpenAI AI Coach Integration**
-
-1. Wire up the OpenAI API on the backend to read user profiles (fitness level, goals, preferences) and generate customized Workout and Diet plans.
-2. Complete the mobile screen `AICoachScreen.js` to replace the mock responses with real chat streaming/loading from the backend.
-3. Wire `express-rate-limit` on `/auth/*` (Redis store when available) for basic security hardening.
-
----
-
-## MVP foundation completion estimate
-
-| Layer | Weight | Completion |
-|-------|--------|------------|
-| Auth + session | 20% | ~95% |
-| Profile / onboarding | 20% | ~90% |
-| Matching + buddy flow | 25% | ~90% |
-| Real-time Chat (Socket.io) | 15% | ~95% |
-| Mobile ↔ API integration | 10% | ~95% |
-| Check-in / streaks | 10% | ~90% |
-
-**Overall MVP foundation: ~93%**  
-(Full product vision including AI, gamification, and leaderboards: ~65%)
+1. **Profile editing screen** (reuse the onboarding steps against `PUT /users/profile`).
+2. **Notifications**: `GET /notifications` + Expo push for buddy requests, messages, session invites.
+3. Password reset / email verification.
+4. Jest + Supertest suite against an in-memory MongoDB.

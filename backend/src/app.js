@@ -1,10 +1,12 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const routes = require('./routes');
 const errorHandler = require('./middleware/error.middleware');
 const AppError = require('./utils/AppError');
+const redisClient = require('./config/redis');
 
 const app = express();
 
@@ -22,6 +24,17 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // Sanitize data against NoSQL query injection
 app.use(mongoSanitize());
+
+// Liveness/readiness probe (no auth)
+app.get('/health', (req, res) => {
+  const dbReady = mongoose.connection.readyState === 1;
+  res.status(dbReady ? 200 : 503).json({
+    status: dbReady ? 'ok' : 'degraded',
+    db: dbReady ? 'connected' : 'disconnected',
+    redis: redisClient?.status === 'ready' ? 'connected' : 'unavailable',
+    uptime: Math.round(process.uptime()),
+  });
+});
 
 // API routes
 app.use('/api/v1', routes);

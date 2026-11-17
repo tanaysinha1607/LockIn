@@ -7,9 +7,14 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/jobs/seed.js",
+    "seed:badges": "node scripts/seed-badges.js",
+    "seed:challenges": "node scripts/seed-challenges.js",
     "verify": "node scripts/verify-mvp.js",
     "verify:phase4": "node scripts/verify-phase4-syntax.js && node scripts/verify-phase4-chat.js",
-    "verify:phase4:syntax": "node scripts/verify-phase4-syntax.js"
+    "verify:phase4:syntax": "node scripts/verify-phase4-syntax.js",
+    "verify:phase5": "node scripts/verify-phase5.js",
+    "verify:phase6": "node scripts/verify-phase6.js",
+    "verify:all": "npm run verify && npm run verify:phase4 && npm run verify:phase5 && npm run verify:phase6"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

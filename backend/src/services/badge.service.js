@@ -1,16 +1,8 @@
 const { Badge, UserBadge, Profile, Streak, Session, Notification, ActivityLog } = require('../models');
 const AppError = require('../utils/AppError');
 const { NOTIFICATION_TYPES, ACTIVITY_LOG_ACTIONS } = require('../config/constants');
+const { awardXp } = require('../utils/xp');
 
-const calcLevel = (level, xp) => {
-  let currentLevel = Math.max(1, level || 1);
-  let nextThreshold = currentLevel * 1000;
-  while (xp >= nextThreshold) {
-    currentLevel += 1;
-    nextThreshold = currentLevel * 1000;
-  }
-  return currentLevel;
-};
 
 /**
  * Check user criteria against all badges and award any newly met milestones
@@ -73,19 +65,21 @@ const awardBadgeDirectly = async (userId, badgeId) => {
     throw new AppError('Badge not found.', 404);
   }
 
-  const userBadge = await UserBadge.create({
-    userId,
-    badgeId,
-    xpAwarded: badge.xpReward,
-  });
-
-  // Award XP and update Level
-  const profile = await Profile.findOne({ userId });
-  if (profile) {
-    profile.xp = (profile.xp || 0) + badge.xpReward;
-    profile.level = calcLevel(profile.level, profile.xp);
-    await profile.save();
+  let userBadge;
+  try {
+    userBadge = await UserBadge.create({
+      userId,
+      badgeId,
+      xpAwarded: badge.xpReward,
+    });
+  } catch (err) {
+    // Unique (userId, badgeId) index: a concurrent evaluation already awarded it
+    if (err && err.code === 11000) return UserBadge.findOne({ userId, badgeId });
+    throw err;
   }
+
+  // Award XP and update level atomically
+  await awardXp(userId, badge.xpReward);
 
   // Create Notification
   await Notification.create({

@@ -1,7 +1,11 @@
 const { Challenge, ChallengeParticipation, Streak, CheckIn, Session, Profile, Match, User, Notification, ActivityLog } = require('../models');
 const AppError = require('../utils/AppError');
 const { CHALLENGE_TYPES, CHALLENGE_STATUS, PARTICIPATION_STATUS, NOTIFICATION_TYPES, ACTIVITY_LOG_ACTIONS } = require('../config/constants');
-const { todayUTC } = require('../utils/date');
+const { formatUTCDate } = require('../utils/date');
+const { awardXp } = require('../utils/xp');
+
+// Challenge dates are stored as Date; check-in dates are 'YYYY-MM-DD' strings in UTC.
+const toDateKey = (d) => formatUTCDate(new Date(d));
 
 /**
  * Get all available challenges (active/upcoming) and annotate if user joined
@@ -72,8 +76,7 @@ const joinChallenge = async (userId, challengeId) => {
   });
 
   // Increment participant count
-  challenge.participantCount = (challenge.participantCount || 0) + 1;
-  await challenge.save();
+  await Challenge.updateOne({ _id: challenge._id }, { $inc: { participantCount: 1 } });
 
   // Log activity
   await ActivityLog.create({
@@ -131,8 +134,8 @@ const updateSingleParticipationProgress = async (userId, participation, challeng
     progress = await CheckIn.countDocuments({
       userId,
       date: {
-        $gte: todayUTC(challenge.startDate),
-        $lte: todayUTC(challenge.endDate),
+        $gte: toDateKey(challenge.startDate),
+        $lte: toDateKey(challenge.endDate),
       },
     });
   } else if (challenge.type === CHALLENGE_TYPES.LOCK_IN_COUNT) {
@@ -153,8 +156,8 @@ const updateSingleParticipationProgress = async (userId, participation, challeng
     progress = await CheckIn.countDocuments({
       userId,
       date: {
-        $gte: todayUTC(challenge.startDate),
-        $lte: todayUTC(challenge.endDate),
+        $gte: toDateKey(challenge.startDate),
+        $lte: toDateKey(challenge.endDate),
       },
     });
   }
@@ -167,21 +170,8 @@ const updateSingleParticipationProgress = async (userId, participation, challeng
     participation.completedAt = now;
     participation.xpEarned = challenge.rewards?.xp || 0;
 
-    // Award XP and Level up
-    const profile = await Profile.findOne({ userId });
-    if (profile) {
-      profile.xp = (profile.xp || 0) + (challenge.rewards?.xp || 0);
-      
-      // Level calculations
-      let currentLevel = Math.max(1, profile.level || 1);
-      let nextThreshold = currentLevel * 1000;
-      while (profile.xp >= nextThreshold) {
-        currentLevel += 1;
-        nextThreshold = currentLevel * 1000;
-      }
-      profile.level = currentLevel;
-      await profile.save();
-    }
+    // Award XP and level up atomically
+    await awardXp(userId, challenge.rewards?.xp || 0);
 
     // Award Badge if specified (importing dynamically to avoid circular dependency)
     if (challenge.rewards?.badgeId) {
@@ -281,11 +271,7 @@ const evaluateAllChallenges = async () => {
             p.completedAt = now;
             p.xpEarned = challenge.rewards?.xp || 0;
 
-            const profile = await Profile.findOne({ userId: p.userId });
-            if (profile) {
-              profile.xp = (profile.xp || 0) + (challenge.rewards?.xp || 0);
-              await profile.save();
-            }
+            await awardXp(p.userId, challenge.rewards?.xp || 0);
 
             await Notification.create({
               userId: p.userId,
@@ -316,11 +302,7 @@ const evaluateAllChallenges = async () => {
           p.completedAt = now;
           p.xpEarned = challenge.rewards?.xp || 0;
 
-          const profile = await Profile.findOne({ userId: p.userId });
-          if (profile) {
-            profile.xp = (profile.xp || 0) + (challenge.rewards?.xp || 0);
-            await profile.save();
-          }
+          await awardXp(p.userId, challenge.rewards?.xp || 0);
 
           await Notification.create({
             userId: p.userId,

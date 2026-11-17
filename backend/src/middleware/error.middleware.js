@@ -56,6 +56,8 @@ const errorHandler = (err, req, res, next) => {
     statusCode
   );
 
+  if (error.errorCode) response.code = error.errorCode;
+
   res.status(statusCode).json(response);
 };
 

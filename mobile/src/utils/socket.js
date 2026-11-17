@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
-import { getBaseUrl } from './api';
+import { getBaseUrl, getAccessToken, refreshAccessToken } from './api';
 
 let socket = null;
 const listeners = new Map();
@@ -22,9 +22,9 @@ export const connectSocket = (token) => {
   console.log(`Connecting Socket.io client to: ${socketUrl}`);
 
   socket = io(socketUrl, {
-    auth: {
-      token,
-    },
+    // Evaluated on every (re)connect so a reconnect after the 15-minute access token
+    // expires uses the latest token instead of the one from app start.
+    auth: (cb) => cb({ token: getAccessToken() || token }),
     transports: ['websocket'], // Force WebSocket transport for better stability in RN
     autoConnect: true,
     reconnection: true,
@@ -41,8 +41,17 @@ export const connectSocket = (token) => {
     });
   });
 
-  socket.on('connect_error', (err) => {
+  let refreshingForSocket = false;
+  socket.on('connect_error', async (err) => {
     console.warn('Socket.io connection error:', err.message);
+
+    // Expired access token: refresh once, then retry the handshake with the new token
+    if (err.message?.startsWith('Authentication error') && !refreshingForSocket) {
+      refreshingForSocket = true;
+      const newToken = await refreshAccessToken();
+      refreshingForSocket = false;
+      if (newToken && socket && !socket.connected) socket.connect();
+    }
   });
 
   socket.on('disconnect', (reason) => {

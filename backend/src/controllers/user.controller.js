@@ -34,7 +34,16 @@ const updateProfile = asyncHandler(async (req, res) => {
   );
 });
 
+/**
+ * PUT /api/v1/users/gym-location - move your gym (rate-limited by a cooldown)
+ */
+const updateGymLocation = asyncHandler(async (req, res) => {
+  const profile = await userService.updateGymLocation(req.user._id, req.body);
+  res.status(200).json(ApiResponse.success('Gym location updated', { profile }));
+});
+
 module.exports = {
+  updateGymLocation,
   getMe,
   updateProfile,
 };

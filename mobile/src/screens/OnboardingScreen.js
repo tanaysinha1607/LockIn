@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { COLORS, SPACING } from '../theme/theme';
 import { userApi } from '../utils/api';
+import { getCurrentCoords, describePlace } from '../utils/location';
 import {
   FITNESS_LEVELS,
   FITNESS_LEVEL_LABELS,
@@ -33,6 +34,17 @@ const WORKOUT_TYPE_OPTIONS = [
   WORKOUT_TYPES.HIIT,
 ];
 
+const TIME_SLOTS = [
+  { key: 'early', label: 'Early morning', start: '05:00', end: '07:00' },
+  { key: 'morning', label: 'Morning', start: '07:00', end: '09:00' },
+  { key: 'midday', label: 'Midday', start: '11:00', end: '13:00' },
+  { key: 'afternoon', label: 'Afternoon', start: '14:00', end: '16:00' },
+  { key: 'evening', label: 'Evening', start: '17:00', end: '19:00' },
+  { key: 'night', label: 'Night', start: '19:00', end: '21:00' },
+];
+
+const DURATIONS = [45, 60, 90, 120];
+
 export default function OnboardingScreen({ navigation }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -44,8 +56,31 @@ export default function OnboardingScreen({ navigation }) {
   const [workoutTypes, setWorkoutTypes] = useState([]);
   const [preferredDays, setPreferredDays] = useState([]);
 
-  const [gymName, setGymName] = useState('Powerhouse Gym');
-  const [gymAddress, setGymAddress] = useState('123 Cyber City, Sector 4');
+  const [timeSlot, setTimeSlot] = useState(null);
+  const [duration, setDuration] = useState(60);
+
+  const [gymName, setGymName] = useState('');
+  const [gymAddress, setGymAddress] = useState('');
+  const [gymCoords, setGymCoords] = useState(null); // { coordinates: [lng, lat], accuracy }
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+
+  const handleUseCurrentLocation = async () => {
+    setLocating(true);
+    setLocationError(null);
+    try {
+      const position = await getCurrentCoords();
+      setGymCoords(position);
+      if (!gymAddress.trim()) {
+        const address = await describePlace(position.coordinates);
+        if (address) setGymAddress(address);
+      }
+    } catch (err) {
+      setLocationError(err.message || 'Couldn’t get your location.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const toggleArrayItem = (list, setList, item) => {
     if (list.includes(item)) {
@@ -68,6 +103,10 @@ export default function OnboardingScreen({ navigation }) {
       setErrorMsg('Please select at least one workout day');
       return;
     }
+    if (step === 4 && !timeSlot) {
+      setErrorMsg('Please pick the time of day you usually train');
+      return;
+    }
     setErrorMsg(null);
     setStep(step + 1);
   };
@@ -78,8 +117,18 @@ export default function OnboardingScreen({ navigation }) {
   };
 
   const handleCompleteOnboarding = async () => {
+    if (!gymName.trim()) {
+      setErrorMsg('Please enter your gym name');
+      return;
+    }
+    if (!gymCoords) {
+      setErrorMsg('Please set your gym location — we use it to find buddies and verify check-ins');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg(null);
+    const slot = TIME_SLOTS.find((t) => t.key === timeSlot) || TIME_SLOTS[1];
 
     const payload = {
       bio,
@@ -89,15 +138,15 @@ export default function OnboardingScreen({ navigation }) {
       workoutTypes,
       preferredWorkoutDays: preferredDays,
       preferredWorkoutTime: {
-        start: '07:00',
-        end: '09:00',
+        start: slot.start,
+        end: slot.end,
       },
-      workoutDuration: 90,
+      workoutDuration: duration,
       gymLocation: {
-        coordinates: [77.209, 28.6139],
+        coordinates: gymCoords.coordinates,
       },
-      gymName,
-      gymAddress,
+      gymName: gymName.trim(),
+      gymAddress: gymAddress.trim(),
       buddyPreferences: {
         genderPreference: BUDDY_GENDER_PREFS.ANY,
         levelRange: BUDDY_LEVEL_RANGES.ANY,
@@ -205,6 +254,35 @@ export default function OnboardingScreen({ navigation }) {
                 <Text style={styles.toggleChipText}>{DAY_LABELS[day]}</Text>
               </TouchableOpacity>
             ))}
+
+            <Text style={styles.label}>USUAL TIME OF DAY</Text>
+            <View style={styles.chipGrid}>
+              {TIME_SLOTS.map((slot) => (
+                <TouchableOpacity
+                  key={slot.key}
+                  style={[styles.gridChip, timeSlot === slot.key && styles.toggleChipSelected]}
+                  onPress={() => setTimeSlot(slot.key)}
+                >
+                  <Text style={styles.gridChipTitle}>{slot.label}</Text>
+                  <Text style={styles.gridChipSub}>
+                    {slot.start}–{slot.end}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.label}>SESSION LENGTH</Text>
+            <View style={styles.chipRow}>
+              {DURATIONS.map((mins) => (
+                <TouchableOpacity
+                  key={mins}
+                  style={[styles.smallChip, duration === mins && styles.toggleChipSelected]}
+                  onPress={() => setDuration(mins)}
+                >
+                  <Text style={styles.toggleChipText}>{mins} min</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
 
@@ -233,10 +311,32 @@ export default function OnboardingScreen({ navigation }) {
               onChangeText={setGymName}
             />
 
-            <Text style={styles.label}>GYM ADDRESS</Text>
+            <Text style={styles.label}>GYM LOCATION</Text>
+            <Text style={styles.hint}>
+              Tap this while you're at your gym. Daily check-ins are verified against this spot, and
+              you can only change it once a week.
+            </Text>
+            <TouchableOpacity
+              style={[styles.locationButton, gymCoords && styles.locationButtonDone]}
+              onPress={handleUseCurrentLocation}
+              disabled={locating}
+            >
+              {locating ? (
+                <ActivityIndicator color={COLORS.text} />
+              ) : (
+                <Text style={styles.locationButtonText}>
+                  {gymCoords
+                    ? `✓ Location set${gymCoords.accuracy ? ` (±${gymCoords.accuracy} m)` : ''} · Tap to redo`
+                    : '📍 Use my current location'}
+                </Text>
+              )}
+            </TouchableOpacity>
+            {locationError && <Text style={styles.locationError}>{locationError}</Text>}
+
+            <Text style={styles.label}>GYM ADDRESS (OPTIONAL)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter gym address"
+              placeholder="Street, area, city"
               placeholderTextColor={COLORS.textMuted}
               value={gymAddress}
               onChangeText={setGymAddress}
@@ -394,6 +494,73 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: SPACING.md,
     textAlignVertical: 'top',
+  },
+  hint: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginBottom: SPACING.sm,
+  },
+  locationButton: {
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  locationButtonDone: {
+    borderColor: COLORS.success,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  locationButtonText: {
+    color: COLORS.text,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  locationError: {
+    color: COLORS.accent,
+    fontSize: 13,
+    marginBottom: SPACING.sm,
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  gridChip: {
+    width: '48%',
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: SPACING.sm + 2,
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  gridChipTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  gridChipSub: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  smallChip: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: SPACING.sm + 2,
+    alignItems: 'center',
+    marginHorizontal: 3,
   },
   navContainer: {
     position: 'absolute',
