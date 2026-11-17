@@ -82,10 +82,8 @@ async function run() {
   const profA = await request('PUT', '/users/profile', profilePayload, tokenA);
   log('Onboard user A', profA.ok && profA.json.data?.user?.isOnboarded === true);
 
-  const profB = await request('PUT', '/users/profile', {
-    ...profilePayload,
-    firstName: 'P5B',
-  }, tokenB);
+  // firstName is an account field (set at register), not a profile field
+  const profB = await request('PUT', '/users/profile', profilePayload, tokenB);
   log('Onboard user B', profB.ok && profB.json.data?.user?.isOnboarded === true);
 
   // 2. Establish Buddy Match
