@@ -59,6 +59,17 @@
 - Check-ins store `distanceFromGym` and `locationAccuracy`.
 - Mobile needs `npx expo install expo-location` after pulling.
 
+## Profile editing (Nov 17)
+
+- New `EditProfileScreen` (Profile → ✎ Edit Profile): bio, fitness level, goals, training styles, days, time of day, session length, buddy search radius, gym name/address, and "Move my gym to where I am now" (shows when the next move is allowed).
+- Sends the full stored profile back with the edits applied, so fields the screen doesn't show (diet, sleep pattern, injuries...) are kept rather than reset to defaults.
+- `TIME_SLOTS`, `DURATIONS`, `BUDDY_DISTANCES` moved to `fitnessConstants.js` and shared with onboarding.
+
+## Verification (Nov 17, against Atlas)
+
+- `verify` 22/22, `verify:phase5` 23/23 (after fixing the script sending `firstName` to the profile endpoint), `verify:phase6` 17/17 (fallback mode, no OpenAI key).
+- `verify-phase4-chat.js` wipes users/matches/chats in the database it uses. It now uses `TEST_MONGODB_URI`, or the same cluster as `MONGODB_URI` with database `lockin_test`, and refuses to run against the app database.
+
 ---
 
 ## Known gaps (not yet built)
@@ -68,7 +79,7 @@
 | Accounts created before Nov 17 still have the New Delhi placeholder gym | Medium | Their first far-away check-in offers to move the gym; legacy profiles can move once without waiting. |
 | GPS can be spoofed on rooted/jailbroken phones or via browser dev tools | Low | Acceptable for now; mock-location detection needs native checks. |
 | Notifications are written to the DB but never delivered | Medium | No `/notifications` endpoint, no push. |
-| No profile editing after onboarding | Medium | `PUT /users/profile` exists but requires the full profile. |
+| Name/email can't be edited | Low | Account fields aren't covered by `PUT /users/profile`. |
 | No password reset / email verification | Medium | |
 | Mutual daily check-ins don't increase `lockInCount` | Low | Only completed scheduled sessions do. `CheckIn.isLockIn` and `Streak.totalLockIns` are never set. |
 | `AI_DAILY_BUDGET_CENTS` is not enforced | Low | Per-user rate limit caps spend for now. |
@@ -117,7 +128,6 @@ For a **physical device**, set your machine's LAN IP in `mobile/app.json`:
 
 ## Next recommended work
 
-1. **Profile editing screen** (reuse the onboarding steps against `PUT /users/profile`).
-2. **Notifications**: `GET /notifications` + Expo push for buddy requests, messages, session invites.
-3. Password reset / email verification.
-4. Jest + Supertest suite against an in-memory MongoDB.
+1. **Notifications**: `GET /notifications` + Expo push for buddy requests, messages, session invites.
+2. Password reset / email verification.
+3. Jest + Supertest suite against an in-memory MongoDB.

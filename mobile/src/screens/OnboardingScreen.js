@@ -23,6 +23,8 @@ import {
   BUDDY_GENDER_PREFS,
   BUDDY_LEVEL_RANGES,
   COMMITMENT_TYPES,
+  TIME_SLOTS,
+  DURATIONS,
 } from '../constants/fitnessConstants';
 
 const FITNESS_LEVEL_OPTIONS = Object.values(FITNESS_LEVELS);
@@ -34,16 +36,6 @@ const WORKOUT_TYPE_OPTIONS = [
   WORKOUT_TYPES.HIIT,
 ];
 
-const TIME_SLOTS = [
-  { key: 'early', label: 'Early morning', start: '05:00', end: '07:00' },
-  { key: 'morning', label: 'Morning', start: '07:00', end: '09:00' },
-  { key: 'midday', label: 'Midday', start: '11:00', end: '13:00' },
-  { key: 'afternoon', label: 'Afternoon', start: '14:00', end: '16:00' },
-  { key: 'evening', label: 'Evening', start: '17:00', end: '19:00' },
-  { key: 'night', label: 'Night', start: '19:00', end: '21:00' },
-];
-
-const DURATIONS = [45, 60, 90, 120];
 
 export default function OnboardingScreen({ navigation }) {
   const [step, setStep] = useState(1);

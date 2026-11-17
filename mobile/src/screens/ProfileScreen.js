@@ -135,8 +135,11 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.avatarTextLarge}>{user?.firstName?.[0] || '?'}</Text>
         </View>
         <Text style={styles.profileName}>{user?.firstName} {user?.lastName}</Text>
-        <Text style={styles.profileBio}>{profile?.bio || 'No bio set. Write something in settings!'}</Text>
+        <Text style={styles.profileBio}>{profile?.bio || 'No bio yet. Tap Edit Profile to add one.'}</Text>
         <Text style={styles.profileGym}>📍 {profile?.gymName || 'No gym linked'}</Text>
+        <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditProfile')}>
+          <Text style={styles.editButtonText}>✎ EDIT PROFILE</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Level and XP */}
@@ -279,6 +282,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: SPACING.xs,
     paddingHorizontal: SPACING.sm,
+  },
+  editButton: {
+    marginTop: SPACING.md,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: SPACING.xs + 2,
+    paddingHorizontal: SPACING.lg,
+  },
+  editButtonText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   profileGym: {
     color: COLORS.secondary,

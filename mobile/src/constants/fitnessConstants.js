@@ -81,3 +81,22 @@ export const BUDDY_LEVEL_RANGES = {
 export const COMMITMENT_TYPES = {
   REGULAR: 'regular',
 };
+
+/** Time-of-day slots offered in onboarding and profile editing (24h HH:mm). */
+export const TIME_SLOTS = [
+  { key: 'early', label: 'Early morning', start: '05:00', end: '07:00' },
+  { key: 'morning', label: 'Morning', start: '07:00', end: '09:00' },
+  { key: 'midday', label: 'Midday', start: '11:00', end: '13:00' },
+  { key: 'afternoon', label: 'Afternoon', start: '14:00', end: '16:00' },
+  { key: 'evening', label: 'Evening', start: '17:00', end: '19:00' },
+  { key: 'night', label: 'Night', start: '19:00', end: '21:00' },
+];
+
+/** Session lengths in minutes. */
+export const DURATIONS = [45, 60, 90, 120];
+
+/** Buddy search radius options in km (backend allows 1-100). */
+export const BUDDY_DISTANCES = [5, 10, 25, 50];
+
+/** Must match GYM_LOCATION_COOLDOWN_DAYS on the backend (display only; the server enforces it). */
+export const GYM_CHANGE_COOLDOWN_DAYS = 7;

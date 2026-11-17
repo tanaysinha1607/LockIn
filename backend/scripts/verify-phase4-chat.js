@@ -1,7 +1,40 @@
 // Set environment variables before loading any file
 process.env.PORT = '5001'; // Use a different port to avoid conflicts
 process.env.NODE_ENV = 'development';
-process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/lockin_test';
+// This test DELETES every user, match, conversation and message in the database it uses,
+// so it must never touch the real app database. It uses TEST_MONGODB_URI if set; otherwise it
+// takes MONGODB_URI from backend/.env and swaps the database name for `lockin_test`
+// (same cluster, separate database).
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+
+const TEST_DB_NAME = 'lockin_test';
+
+const parseMongoUri = (uri) => {
+  const m = /^(mongodb(?:\+srv)?:\/\/[^/?]+)(?:\/([^?]*))?(\?.*)?$/.exec(uri || '');
+  if (!m) return null;
+  // MongoDB uses the "test" database when the URI names none
+  return { base: m[1], dbName: m[2] || 'test', query: m[3] || '' };
+};
+
+const resolveTestUri = () => {
+  const appUri = parseMongoUri(process.env.MONGODB_URI);
+  if (process.env.TEST_MONGODB_URI) return { uri: process.env.TEST_MONGODB_URI, appUri };
+  if (!appUri) return { uri: `mongodb://127.0.0.1:27017/${TEST_DB_NAME}`, appUri };
+  return { uri: `${appUri.base}/${TEST_DB_NAME}${appUri.query}`, appUri };
+};
+
+const { uri: testUri, appUri } = resolveTestUri();
+const testDb = parseMongoUri(testUri);
+if (!testDb || (appUri && testDb.base === appUri.base && testDb.dbName === appUri.dbName)) {
+  console.error('Refusing to run: the test database is the same as the app database (it would be wiped).');
+  process.exit(1);
+}
+if (!/test/i.test(testDb.dbName)) {
+  console.error(`Refusing to run: test database name "${testDb.dbName}" must contain "test".`);
+  process.exit(1);
+}
+
+process.env.MONGODB_URI = testUri;
 process.env.REDIS_URL = 'redis://127.0.0.1:6379';
 process.env.ACCESS_TOKEN_SECRET = 'test_access_token_secret_string_12345';
 process.env.REFRESH_TOKEN_SECRET = 'test_refresh_token_secret_string_12345';
@@ -23,7 +56,7 @@ async function runTest() {
 
   try {
     // 1. Connect to MongoDB
-    console.log('Connecting to Test MongoDB...');
+    console.log(`Connecting to test database "${testDb.dbName}"...`);
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected.');
 
