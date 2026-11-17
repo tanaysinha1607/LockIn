@@ -1,5 +1,6 @@
 const { Badge, UserBadge, Profile, Streak, Session, Notification, ActivityLog } = require('../models');
 const AppError = require('../utils/AppError');
+const { notify } = require('./notification.service');
 const { NOTIFICATION_TYPES, ACTIVITY_LOG_ACTIONS } = require('../config/constants');
 const { awardXp } = require('../utils/xp');
 
@@ -82,7 +83,7 @@ const awardBadgeDirectly = async (userId, badgeId) => {
   await awardXp(userId, badge.xpReward);
 
   // Create Notification
-  await Notification.create({
+  await notify({
     userId,
     type: NOTIFICATION_TYPES.BADGE_EARNED,
     title: `Badge Earned: ${badge.name}! 🏅`,

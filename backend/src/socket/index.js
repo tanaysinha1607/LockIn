@@ -226,7 +226,13 @@ const joinUsersToConversation = (userIds, conversationId) => {
   });
 };
 
+/**
+ * True if the user has at least one live socket (app open somewhere).
+ */
+const isUserOnline = (userId) => onlineUsers.has(String(userId));
+
 module.exports = {
+  isUserOnline,
   initializeSocket,
   getIO,
   joinUsersToConversation,

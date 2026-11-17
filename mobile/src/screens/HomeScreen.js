@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { 
   View, 
   Text, 
@@ -8,7 +9,10 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import { COLORS, SPACING } from '../theme/theme';
-import { userApi, authApi, checkInApi } from '../utils/api';
+import { userApi, authApi, checkInApi, notificationApi, getAccessToken } from '../utils/api';
+import { connectSocket, registerSocketListener } from '../utils/socket';
+import { registerForPushNotifications } from '../utils/push';
+import { takePendingRoute } from '../utils/notificationRoutes';
 import { getCurrentCoords } from '../utils/location';
 
 export default function HomeScreen({ navigation }) {
@@ -22,9 +26,30 @@ export default function HomeScreen({ navigation }) {
   const [checkInError, setCheckInError] = useState(null); // { message, code }
   const [lastPosition, setLastPosition] = useState(null); // position used for the last attempt
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
   useEffect(() => {
     fetchUserData();
+
+    // Live updates (new notifications) need the socket even if Chat was never opened
+    const token = getAccessToken();
+    if (token) connectSocket(token);
+    registerForPushNotifications();
+
+    // Open a push the user tapped while the app was starting
+    const pending = takePendingRoute();
+    if (pending) navigation.navigate(pending.name, pending.params);
+
+    return registerSocketListener('notification:new', () => setUnreadCount((c) => c + 1));
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      notificationApi.unreadCount().then((res) => {
+        if (res.success) setUnreadCount(res.data.unreadCount);
+      });
+    }, [])
+  );
 
   const fetchUserData = async () => {
     setLoading(true);
@@ -135,9 +160,23 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.greeting}>Welcome back,</Text>
           <Text style={styles.name}>{user?.firstName || 'Gym Buddy'}</Text>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={() => navigation.navigate('Notifications')}
+            accessibilityLabel={`Notifications, ${unreadCount} unread`}
+          >
+            <Text style={styles.bellIcon}>🔔</Text>
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Level & Gamification Card */}
@@ -322,6 +361,34 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 24,
     fontWeight: '900',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bellButton: {
+    marginRight: SPACING.sm,
+    padding: SPACING.xs,
+  },
+  bellIcon: {
+    fontSize: 22,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: '800',
   },
   logoutButton: {
     paddingVertical: SPACING.xs,

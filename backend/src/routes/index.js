@@ -10,6 +10,7 @@ const challengeRoutes = require('./challenge.routes');
 const badgeRoutes = require('./badge.routes');
 const leaderboardRoutes = require('./leaderboard.routes');
 const aiRoutes = require('./ai.routes');
+const notificationRoutes = require('./notification.routes');
 
 const router = express.Router();
 
@@ -24,5 +25,6 @@ router.use('/challenges', challengeRoutes);
 router.use('/badges', badgeRoutes);
 router.use('/leaderboard', leaderboardRoutes);
 router.use('/ai', aiRoutes);
+router.use('/notifications', notificationRoutes);
 
 module.exports = router;

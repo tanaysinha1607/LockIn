@@ -1,5 +1,6 @@
 const { Challenge, ChallengeParticipation, Streak, CheckIn, Session, Profile, Match, User, Notification, ActivityLog } = require('../models');
 const AppError = require('../utils/AppError');
+const { notify } = require('./notification.service');
 const { CHALLENGE_TYPES, CHALLENGE_STATUS, PARTICIPATION_STATUS, NOTIFICATION_TYPES, ACTIVITY_LOG_ACTIONS } = require('../config/constants');
 const { formatUTCDate } = require('../utils/date');
 const { awardXp } = require('../utils/xp');
@@ -182,7 +183,7 @@ const updateSingleParticipationProgress = async (userId, participation, challeng
     }
 
     // Create Notification
-    await Notification.create({
+    await notify({
       userId,
       type: NOTIFICATION_TYPES.CHALLENGE_UPDATE,
       title: 'Challenge Completed! 🏆',
@@ -273,7 +274,7 @@ const evaluateAllChallenges = async () => {
 
             await awardXp(p.userId, challenge.rewards?.xp || 0);
 
-            await Notification.create({
+            await notify({
               userId: p.userId,
               type: NOTIFICATION_TYPES.CHALLENGE_UPDATE,
               title: 'Challenge Won! 🥇',
@@ -283,7 +284,7 @@ const evaluateAllChallenges = async () => {
           } else {
             // User lost or tied (only strictly higher progress wins, or we can tie)
             p.status = PARTICIPATION_STATUS.FAILED;
-            await Notification.create({
+            await notify({
               userId: p.userId,
               type: NOTIFICATION_TYPES.CHALLENGE_UPDATE,
               title: 'Challenge Ended 🏁',
@@ -304,7 +305,7 @@ const evaluateAllChallenges = async () => {
 
           await awardXp(p.userId, challenge.rewards?.xp || 0);
 
-          await Notification.create({
+          await notify({
             userId: p.userId,
             type: NOTIFICATION_TYPES.CHALLENGE_UPDATE,
             title: 'Challenge Completed! 🏆',

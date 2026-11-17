@@ -1,5 +1,6 @@
 const { Session, Match, Profile, User, Notification, ActivityLog } = require('../models');
 const AppError = require('../utils/AppError');
+const { notify } = require('./notification.service');
 const { SESSION_STATUS, NOTIFICATION_TYPES, ACTIVITY_LOG_ACTIONS } = require('../config/constants');
 const { calculateHaversineDistance } = require('./buddyRequest.service');
 
@@ -49,7 +50,7 @@ const createSession = async (creatorId, sessionBody) => {
   });
 
   // Create notification for buddy
-  await Notification.create({
+  await notify({
     userId: buddyId,
     type: NOTIFICATION_TYPES.SESSION_REMINDER,
     title: 'Workout Session Invite 🏋️',
@@ -103,7 +104,7 @@ const respondToSession = async (userId, sessionId, status) => {
     await session.save();
 
     // Notify creator
-    await Notification.create({
+    await notify({
       userId: session.creatorId,
       type: NOTIFICATION_TYPES.SESSION_REMINDER,
       title: 'Workout Invite Accepted! ✅',
@@ -115,7 +116,7 @@ const respondToSession = async (userId, sessionId, status) => {
     await session.save();
 
     // Notify creator
-    await Notification.create({
+    await notify({
       userId: session.creatorId,
       type: NOTIFICATION_TYPES.SESSION_REMINDER,
       title: 'Workout Invite Declined ❌',
@@ -152,7 +153,7 @@ const cancelSession = async (userId, sessionId) => {
   const otherUserId = session.participants.find(p => String(p) !== String(userId));
 
   if (otherUserId) {
-    await Notification.create({
+    await notify({
       userId: otherUserId,
       type: NOTIFICATION_TYPES.SESSION_REMINDER,
       title: 'Workout Session Cancelled 🚫',

@@ -3,6 +3,7 @@ const Streak = require('../models/Streak');
 const Profile = require('../models/Profile');
 const ActivityLog = require('../models/ActivityLog');
 const AppError = require('../utils/AppError');
+const { notify } = require('./notification.service');
 const { logger } = require('../utils/logger');
 const { ACTIVITY_LOG_ACTIONS } = require('../config/constants');
 const { todayUTC, addDaysUTC } = require('../utils/date');
@@ -141,14 +142,14 @@ const completeTodaysSessions = async (userId, today, checkInDoc) => {
     const nameB = userB ? userB.firstName : 'Your buddy';
 
     await Promise.all([
-      Notification.create({
+      notify({
         userId,
         type: NOTIFICATION_TYPES.LOCK_IN,
         title: 'Lock-In Complete! 🔒🔥',
         body: `You completed your workout "${session.title}" with ${nameB} and earned +${SESSION_BONUS_XP} XP!`,
         data: { sessionId: session._id, matchId: session.matchId },
       }),
-      Notification.create({
+      notify({
         userId: buddyId,
         type: NOTIFICATION_TYPES.LOCK_IN,
         title: 'Lock-In Complete! 🔒🔥',

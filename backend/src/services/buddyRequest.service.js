@@ -4,6 +4,8 @@ const Conversation = require('../models/Conversation');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
+const { notify } = require('./notification.service');
+const { NOTIFICATION_TYPES } = require('../config/constants');
 const compatibilityService = require('./compatibility.service');
 
 /**
@@ -65,6 +67,15 @@ const sendBuddyRequest = async (senderId, receiverId) => {
     receiverId,
     status: 'pending',
   });
+
+  const sender = await User.findById(senderId).select('firstName');
+  await notify({
+    userId: receiverId,
+    type: NOTIFICATION_TYPES.BUDDY_REQUEST,
+    title: 'New buddy request 🤝',
+    body: `${sender?.firstName || 'Someone'} wants to be your gym buddy.`,
+    data: { requestId: request._id, senderId },
+  }).catch(() => {});
 
   return request;
 };
@@ -139,6 +150,20 @@ const respondToBuddyRequest = async (receiverId, requestId, status) => {
 
     request.matchId = match._id;
     await request.save();
+
+    const receiver = await User.findById(receiverId).select('firstName');
+    await notify({
+      userId: senderId,
+      type: NOTIFICATION_TYPES.BUDDY_ACCEPTED,
+      title: 'Buddy request accepted 🔒',
+      body: `${receiver?.firstName || 'Your buddy'} accepted. Say hi and plan your first session!`,
+      data: {
+        matchId: match._id,
+        conversationId: conversation._id,
+        buddyId: receiverId,
+        buddyName: receiver?.firstName || 'Buddy',
+      },
+    }).catch(() => {});
 
     // Put both buddies' live sockets into the new chat room right away
     try {

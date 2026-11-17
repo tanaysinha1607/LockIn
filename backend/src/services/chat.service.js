@@ -65,6 +65,46 @@ const getMessages = async (userId, conversationId, { before, limit = 50 } = {}) 
 };
 
 /**
+ * Phone push for participants who don't have the app open. No in-app notification row:
+ * the chat list already shows unread counts.
+ */
+const pushToOfflineParticipants = async (conversation, senderId, message, content) => {
+  const { notify } = require('./notification.service');
+  const { NOTIFICATION_TYPES } = require('../config/constants');
+  let isUserOnline = () => false;
+  try {
+    ({ isUserOnline } = require('../socket'));
+  } catch {
+    // socket layer unavailable
+  }
+
+  const senderName = message.senderId?.firstName || 'Your buddy';
+  const preview = content.length > 120 ? `${content.slice(0, 117)}...` : content;
+
+  const recipients = conversation.participants.filter(
+    (p) => String(p) !== String(senderId) && !isUserOnline(p)
+  );
+  await Promise.all(
+    recipients.map((recipientId) =>
+      notify(
+        {
+          userId: recipientId,
+          type: NOTIFICATION_TYPES.MESSAGE,
+          title: senderName,
+          body: preview,
+          data: {
+            conversationId: conversation._id,
+            buddyId: senderId,
+            buddyName: senderName,
+          },
+        },
+        { store: false }
+      )
+    )
+  );
+};
+
+/**
  * Send a message within a conversation
  */
 const sendMessage = async (userId, conversationId, content, type = MESSAGE_TYPES.TEXT) => {
@@ -117,6 +157,8 @@ const sendMessage = async (userId, conversationId, content, type = MESSAGE_TYPES
   });
 
   await conversation.save();
+
+  pushToOfflineParticipants(conversation, userId, message, content).catch(() => {});
 
   return message;
 };

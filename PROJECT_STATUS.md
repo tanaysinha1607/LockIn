@@ -65,6 +65,14 @@
 - Sends the full stored profile back with the edits applied, so fields the screen doesn't show (diet, sleep pattern, injuries...) are kept rather than reset to defaults.
 - `TIME_SLOTS`, `DURATIONS`, `BUDDY_DISTANCES` moved to `fitnessConstants.js` and shared with onboarding.
 
+## Notifications (Nov 17)
+
+- `notification.service.notify()` is now the only way notifications are created: it saves the in-app row, sends `notification:new` live to the user's open apps (socket room `user:<id>`), and pushes to their phones through Expo's push API (plain HTTPS, no SDK). Dead tokens are removed automatically. Push respects `User.notificationPreferences`.
+- New notifications: buddy request received, buddy request accepted (opens the new chat). Chat messages push to buddies who don't have the app open (push only, no list entry — the chat list has unread counts).
+- API: `GET /notifications` (cursor `before`), `GET /notifications/unread-count`, `PUT /notifications/:id/read`, `PUT /notifications/read-all`, `PUT /notifications/preferences`, `POST|DELETE /notifications/push-token`.
+- Mobile: 🔔 with unread count on Home (live), `NotificationsScreen` (tap opens the right screen, mark all read, infinite scroll). Tapping a phone push opens the same screen, including from a cold start. Logout removes the device's push token.
+- **Phone push needs setup**: `npx expo install expo-notifications expo-device`, then `npx eas init` in `mobile/` (adds the EAS projectId). Android needs a development build (`npx expo run:android` or EAS) — Expo Go on Android doesn't receive remote push. Without this, everything except the phone banner still works.
+
 ## Verification (Nov 17, against Atlas)
 
 - `verify` 22/22, `verify:phase5` 23/23 (after fixing the script sending `firstName` to the profile endpoint), `verify:phase6` 17/17 (fallback mode, no OpenAI key).
@@ -78,7 +86,8 @@
 |-----|--------|-------|
 | Accounts created before Nov 17 still have the New Delhi placeholder gym | Medium | Their first far-away check-in offers to move the gym; legacy profiles can move once without waiting. |
 | GPS can be spoofed on rooted/jailbroken phones or via browser dev tools | Low | Acceptable for now; mock-location detection needs native checks. |
-| Notifications are written to the DB but never delivered | Medium | No `/notifications` endpoint, no push. |
+| No notification settings screen | Low | `PUT /notifications/preferences` exists; no UI for it yet. |
+| No scheduled reminders | Medium | `check_in_reminder` / `streak_alert` types exist but nothing sends them (needs a daily job). |
 | Name/email can't be edited | Low | Account fields aren't covered by `PUT /users/profile`. |
 | No password reset / email verification | Medium | |
 | Mutual daily check-ins don't increase `lockInCount` | Low | Only completed scheduled sessions do. `CheckIn.isLockIn` and `Streak.totalLockIns` are never set. |
@@ -128,6 +137,6 @@ For a **physical device**, set your machine's LAN IP in `mobile/app.json`:
 
 ## Next recommended work
 
-1. **Notifications**: `GET /notifications` + Expo push for buddy requests, messages, session invites.
+1. **Daily reminders**: "you haven't checked in" / "your streak ends tonight" pushes from a scheduled job, plus a notification settings screen.
 2. Password reset / email verification.
 3. Jest + Supertest suite against an in-memory MongoDB.

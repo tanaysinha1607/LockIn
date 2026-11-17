@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { disconnectSocket } from './socket';
+// push.js imports from this file too; that's fine because both only use each other inside functions
+import { unregisterPushNotifications } from './push';
 
 // Override via app.json expo.extra.apiUrl for physical devices (e.g. http://192.168.x.x:5000/api/v1)
 const DEFAULT_BASE_URL = 'http://127.0.0.1:5000/api/v1';
@@ -163,6 +165,8 @@ export const authApi = {
     }),
 
   logout: async () => {
+    // Stop pushes to this device for this account
+    await unregisterPushNotifications();
     const refreshToken = await AsyncStorage.getItem('refresh_token');
     const result = await apiCall('/auth/logout', {
       method: 'POST',
@@ -345,3 +349,37 @@ export const aiApi = {
     }),
 };
 
+
+export const notificationApi = {
+  list: (before = null, limit = 30) =>
+    apiCall(`/notifications?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ''}`, {
+      method: 'GET',
+    }),
+
+  unreadCount: () =>
+    apiCall('/notifications/unread-count', {
+      method: 'GET',
+    }),
+
+  markRead: (notificationId) =>
+    apiCall(`/notifications/${notificationId}/read`, {
+      method: 'PUT',
+    }),
+
+  markAllRead: () =>
+    apiCall('/notifications/read-all', {
+      method: 'PUT',
+    }),
+
+  registerPushToken: (token) =>
+    apiCall('/notifications/push-token', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  removePushToken: (token) =>
+    apiCall('/notifications/push-token', {
+      method: 'DELETE',
+      body: JSON.stringify({ token }),
+    }),
+};

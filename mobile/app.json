@@ -29,6 +29,12 @@
         {
           "locationWhenInUsePermission": "LockIn uses your location to save your gym and confirm you're there when you check in."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#8B5CF6"
+        }
       ]
     ]
   }

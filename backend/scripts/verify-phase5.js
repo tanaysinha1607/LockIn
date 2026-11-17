@@ -95,6 +95,27 @@ async function run() {
   const matchId = accept.json.data?.match?._id;
   log('Accept buddy request (A & B are matches)', accept.ok && !!matchId);
 
+  // Notifications created by the buddy flow
+  const notifsB = await request('GET', '/notifications', null, tokenB);
+  log(
+    'B has a buddy_request notification',
+    notifsB.ok && (notifsB.json.data?.notifications || []).some((n) => n.type === 'buddy_request')
+  );
+  const notifsA = await request('GET', '/notifications', null, tokenA);
+  const acceptedNotif = (notifsA.json.data?.notifications || []).find((n) => n.type === 'buddy_accepted');
+  log('A has a buddy_accepted notification with a chat link', notifsA.ok && !!acceptedNotif?.data?.conversationId);
+
+  const unreadBefore = (await request('GET', '/notifications/unread-count', null, tokenA)).json.data?.unreadCount;
+  if (acceptedNotif) await request('PUT', `/notifications/${acceptedNotif._id}/read`, null, tokenA);
+  const unreadAfter = (await request('GET', '/notifications/unread-count', null, tokenA)).json.data?.unreadCount;
+  log('Marking a notification read lowers unread count', unreadBefore >= 1 && unreadAfter === unreadBefore - 1);
+
+  const badToken = await request('POST', '/notifications/push-token', { token: 'not-a-push-token' }, tokenA);
+  log('Rejects an invalid push token', badToken.status === 400);
+  const goodToken = await request('POST', '/notifications/push-token', { token: 'ExponentPushToken[verify-script-test]' }, tokenA);
+  log('Registers an Expo push token', goodToken.ok);
+  await request('DELETE', '/notifications/push-token', { token: 'ExponentPushToken[verify-script-test]' }, tokenA);
+
   // 3. Schedule Workout Session
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const schedBody = {

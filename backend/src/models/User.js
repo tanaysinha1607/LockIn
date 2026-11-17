@@ -62,8 +62,14 @@ const userSchema = new mongoose.Schema(
       default: Date.now,
     },
     fcmToken: {
-      type: String,
+      type: String, // unused; kept for old documents. Push uses pushTokens.
       default: null,
+    },
+    // Expo push tokens, one per device the user is signed in on (newest last)
+    pushTokens: {
+      type: [String],
+      default: [],
+      select: false,
     },
     // SHA-256 hashes of currently valid refresh tokens, one per signed-in device (newest last).
     refreshTokens: {
