@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "LockIn",
+    "slug": "lockin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,13 +15,20 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiUrl": "http://127.0.0.1:5000/api/v1"
+      "apiUrl": "http://127.0.0.1:5000/api/v1",
+      "eas": {
+        "projectId": "28f0bc3e-1f73-4694-b776-93c88d6d1f74"
+      }
     },
     "plugins": [
       [
@@ -36,6 +43,7 @@
           "color": "#8B5CF6"
         }
       ]
-    ]
+    ],
+    "owner": "tanay1607s-team"
   }
 }
