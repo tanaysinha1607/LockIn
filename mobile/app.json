@@ -42,7 +42,8 @@
         {
           "color": "#8B5CF6"
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "owner": "tanay1607s-team"
   }

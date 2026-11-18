@@ -10,14 +10,16 @@ const isExpoPushToken = (token) => typeof token === 'string' && /^Expo(nent)?Pus
  * Never throws: push is best-effort and must not break the request that triggered it.
  *
  * @param {Array<{to: string, title: string, body: string, data?: object}>} messages
- * @returns {Promise<{ sent: number, invalidTokens: string[] }>} tokens Expo says are dead
+ * @returns {Promise<{ sent: number, invalidTokens: string[], errors: string[] }>}
  */
 const sendExpoPush = async (messages, { fetchImpl = globalThis.fetch } = {}) => {
   const valid = messages.filter((m) => isExpoPushToken(m.to));
   const invalidTokens = [];
+  const errors = [];
   let sent = 0;
 
-  if (process.env.PUSH_ENABLED === 'false' || valid.length === 0) return { sent, invalidTokens };
+  if (process.env.PUSH_ENABLED === 'false') return { sent, invalidTokens, errors: ['PUSH_ENABLED=false on the server'] };
+  if (valid.length === 0) return { sent, invalidTokens, errors };
 
   const headers = {
     Accept: 'application/json',
@@ -32,20 +34,27 @@ const sendExpoPush = async (messages, { fetchImpl = globalThis.fetch } = {}) => 
       const res = await fetchImpl(EXPO_PUSH_URL, { method: 'POST', headers, body: JSON.stringify(chunk) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        logger.warn(`Expo push request failed (${res.status}): ${JSON.stringify(json.errors || json).slice(0, 300)}`);
+        const msg = `Expo push request failed (${res.status}): ${JSON.stringify(json.errors || json).slice(0, 300)}`;
+        logger.warn(msg);
+        errors.push(msg);
         continue;
       }
       (json.data || []).forEach((ticket, idx) => {
         if (ticket.status === 'ok') sent += 1;
-        else if (ticket.details?.error === 'DeviceNotRegistered') invalidTokens.push(chunk[idx].to);
-        else logger.warn(`Expo push ticket error: ${ticket.message || ticket.details?.error}`);
+        else {
+          if (ticket.details?.error === 'DeviceNotRegistered') invalidTokens.push(chunk[idx].to);
+          const msg = `Expo push ticket error: ${ticket.message || ticket.details?.error}`;
+          logger.warn(msg);
+          errors.push(msg);
+        }
       });
     } catch (err) {
       logger.warn(`Expo push send failed: ${err.message}`);
+      errors.push(`Could not reach Expo: ${err.message}`);
     }
   }
 
-  return { sent, invalidTokens };
+  return { sent, invalidTokens, errors };
 };
 
 module.exports = { sendExpoPush, isExpoPushToken };

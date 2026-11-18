@@ -20,14 +20,25 @@ if (supported) {
   });
 }
 
+// Result of the last registration attempt, shown on the Notifications screen in development
+let lastStatus = { status: 'not-tried', message: 'Push registration has not run yet.' };
+export const getPushStatus = () => lastStatus;
+
+const finish = (status, message, token = null) => {
+  lastStatus = { status, message, token };
+  console.log(`[push] ${status}: ${message}`);
+  return token;
+};
+
 /**
  * Asks for permission, gets this device's Expo push token and registers it with the server.
- * Safe to call on every app start; quietly does nothing on web, simulators, or when push
- * isn't available (e.g. Expo Go on Android, or no EAS projectId configured).
+ * Safe to call on every app start. On web, simulators, Expo Go on Android, or without an
+ * EAS projectId it does nothing and records why (see getPushStatus()).
  * @returns {Promise<string|null>} the token, or null
  */
 export const registerForPushNotifications = async () => {
-  if (!supported || !Device.isDevice) return null;
+  if (!supported) return finish('unsupported', 'Push notifications are not available on web.');
+  if (!Device.isDevice) return finish('unsupported', 'Push needs a real phone, not a simulator.');
 
   try {
     if (Platform.OS === 'android') {
@@ -42,21 +53,27 @@ export const registerForPushNotifications = async () => {
     if (status !== 'granted') {
       status = (await Notifications.requestPermissionsAsync()).status;
     }
-    if (status !== 'granted') return null;
+    if (status !== 'granted') {
+      return finish(
+        'denied',
+        'Notification permission is off. Turn it on in iPhone Settings → Expo Go → Notifications.'
+      );
+    }
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
     if (!projectId) {
-      console.warn('Push disabled: no EAS projectId. Run `npx eas init` in mobile/ to enable push.');
-      return null;
+      return finish('no-project', 'No EAS projectId in app.json. Run `eas init` in mobile/.');
     }
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
     const result = await notificationApi.registerPushToken(token);
-    if (result.success) await AsyncStorage.setItem(STORED_TOKEN_KEY, token);
-    return token;
+    if (!result.success) {
+      return finish('error', `Got a token but the server rejected it: ${result.message}`);
+    }
+    await AsyncStorage.setItem(STORED_TOKEN_KEY, token);
+    return finish('registered', 'This phone is registered for push.', token);
   } catch (err) {
-    console.warn('Push registration skipped:', err?.message || err);
-    return null;
+    return finish('error', `Could not get a push token: ${err?.message || err}`);
   }
 };
 

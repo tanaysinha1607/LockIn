@@ -32,17 +32,46 @@ const emitToUser = (userId, event, payload) => {
   }
 };
 
-const sendPushToUser = async (userId, { type, title, body, data }) => {
-  const user = await User.findById(userId).select('+pushTokens notificationPreferences');
-  if (!user || !user.pushTokens?.length || !pushAllowed(user, type)) return false;
-
-  const { sent, invalidTokens } = await sendExpoPush(
-    user.pushTokens.map((to) => ({ to, title, body, data: { ...data, type } }))
-  );
-  if (invalidTokens.length) {
-    await User.updateOne({ _id: userId }, { $pull: { pushTokens: { $in: invalidTokens } } });
+const deliverPush = async (user, { type, title, body, data = {} }) => {
+  const tokens = user.pushTokens || [];
+  const result = await sendExpoPush(tokens.map((to) => ({ to, title, body, data: { ...data, type } })));
+  if (result.invalidTokens.length) {
+    await User.updateOne({ _id: user._id }, { $pull: { pushTokens: { $in: result.invalidTokens } } });
   }
+  logger.info(`Push "${type}" to user ${user._id}: ${result.sent}/${tokens.length} device(s) accepted by Expo`);
+  return { deviceCount: tokens.length, ...result };
+};
+
+const sendPushToUser = async (userId, notification) => {
+  const user = await User.findById(userId).select('+pushTokens notificationPreferences');
+  if (!user) return false;
+  if (!user.pushTokens?.length) {
+    logger.debug(`No push sent to user ${userId}: no registered devices`);
+    return false;
+  }
+  if (!pushAllowed(user, notification.type)) return false;
+  const { sent } = await deliverPush(user, notification);
   return sent > 0;
+};
+
+/**
+ * Sends a push to the caller's own devices and reports what happened. For debugging setup.
+ */
+const sendTestPush = async (userId) => {
+  const user = await User.findById(userId).select('+pushTokens firstName');
+  if (!user?.pushTokens?.length) {
+    return {
+      deviceCount: 0,
+      sent: 0,
+      errors: ['No devices registered for push on this account. Open the app on your phone and allow notifications.'],
+    };
+  }
+  const result = await deliverPush(user, {
+    type: NOTIFICATION_TYPES.MOTIVATION,
+    title: 'LockIn test push 🔔',
+    body: `It works, ${user.firstName || 'champ'}! Push notifications are set up.`,
+  });
+  return { deviceCount: result.deviceCount, sent: result.sent, errors: result.errors };
 };
 
 /**
@@ -117,6 +146,7 @@ const updatePreferences = async (userId, prefs) => {
 
 module.exports = {
   notify,
+  sendTestPush,
   listNotifications,
   getUnreadCount,
   markRead,

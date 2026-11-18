@@ -47,4 +47,11 @@ const updatePreferences = asyncHandler(async (req, res) => {
   res.status(200).json(ApiResponse.success('Notification preferences updated', { preferences }));
 });
 
-module.exports = { list, unreadCount, markRead, markAllRead, registerPushToken, removePushToken, updatePreferences };
+/** POST /api/v1/notifications/test-push - push to your own devices and report the result */
+const testPush = asyncHandler(async (req, res) => {
+  const result = await notificationService.sendTestPush(req.user._id);
+  res.status(200).json(ApiResponse.success('Test push attempted', result));
+});
+
+module.exports = {
+  testPush, list, unreadCount, markRead, markAllRead, registerPushToken, removePushToken, updatePreferences };

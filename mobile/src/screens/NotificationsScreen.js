@@ -13,6 +13,7 @@ import { COLORS, SPACING } from '../theme/theme';
 import { notificationApi } from '../utils/api';
 import { registerSocketListener } from '../utils/socket';
 import { routeForNotification, NOTIFICATION_ICONS } from '../utils/notificationRoutes';
+import { getPushStatus, registerForPushNotifications } from '../utils/push';
 
 const PAGE_SIZE = 30;
 
@@ -35,6 +36,23 @@ export default function NotificationsScreen({ navigation }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [pushCheck, setPushCheck] = useState(null); // dev diagnostics result
+  const [testing, setTesting] = useState(false);
+
+  // Development only: re-register this device, ask the server to push to it, show the outcome
+  const runPushTest = async () => {
+    setTesting(true);
+    await registerForPushNotifications();
+    const device = getPushStatus();
+    const res = await notificationApi.testPush();
+    setTesting(false);
+    const server = res.success
+      ? res.data.sent > 0
+        ? `Server: Expo accepted ${res.data.sent} of ${res.data.deviceCount} device(s). Lock your phone - a banner should arrive within a few seconds.`
+        : `Server: ${res.data.deviceCount} device(s) registered, none accepted. ${(res.data.errors || []).join(' ')}`
+      : `Server error: ${res.message}`;
+    setPushCheck(`Phone: ${device.message}\n${server}`);
+  };
 
   const load = async () => {
     const res = await notificationApi.list(null, PAGE_SIZE);
@@ -119,6 +137,14 @@ export default function NotificationsScreen({ navigation }) {
             </TouchableOpacity>
           )}
         </View>
+        {__DEV__ && (
+          <View style={styles.devBox}>
+            <TouchableOpacity onPress={runPushTest} disabled={testing}>
+              <Text style={styles.devButton}>{testing ? 'Testing push…' : '🛠 Send me a test push'}</Text>
+            </TouchableOpacity>
+            {pushCheck && <Text style={styles.devText}>{pushCheck}</Text>}
+          </View>
+        )}
       </View>
 
       {loading ? (
@@ -162,6 +188,16 @@ const styles = StyleSheet.create({
   back: { color: COLORS.primary, fontSize: 14, fontWeight: '700', marginBottom: SPACING.sm },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: COLORS.text, fontSize: 28, fontWeight: '900' },
+  devBox: {
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+  },
+  devButton: { color: COLORS.warning, fontWeight: '700', fontSize: 13 },
+  devText: { color: COLORS.textMuted, fontSize: 12, marginTop: SPACING.xs },
   markAll: { color: COLORS.secondary, fontSize: 13, fontWeight: '700' },
   list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl },
   item: {

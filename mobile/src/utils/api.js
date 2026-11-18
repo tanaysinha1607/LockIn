@@ -393,6 +393,12 @@ export const notificationApi = {
       body: JSON.stringify({ token }),
     }),
 
+  // Development helper: push to your own devices; returns { deviceCount, sent, errors }
+  testPush: () =>
+    apiCall('/notifications/test-push', {
+      method: 'POST',
+    }),
+
   removePushToken: (token) =>
     apiCall('/notifications/push-token', {
       method: 'DELETE',

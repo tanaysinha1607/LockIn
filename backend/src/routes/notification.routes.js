@@ -13,6 +13,7 @@ router.get('/unread-count', c.unreadCount);
 router.put('/read-all', c.markAllRead);
 router.put('/preferences', validate(v.preferences), c.updatePreferences);
 router.post('/push-token', validate(v.pushToken), c.registerPushToken);
+router.post('/test-push', c.testPush);
 router.delete('/push-token', validate(v.pushToken), c.removePushToken);
 router.put('/:notificationId/read', validate(v.markRead), c.markRead);
 
