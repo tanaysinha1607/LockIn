@@ -1,15 +1,31 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { disconnectSocket } from './socket';
 // push.js imports from this file too; that's fine because both only use each other inside functions
 import { unregisterPushNotifications } from './push';
 
-// Override via app.json expo.extra.apiUrl for physical devices (e.g. http://192.168.x.x:5000/api/v1)
+// API address, in priority order:
+//   1. EXPO_PUBLIC_API_URL env var
+//   2. app.json expo.extra.apiUrl
+//   3. http://127.0.0.1:5000/api/v1
+// On a phone, 127.0.0.1 means the phone itself, so when the configured address is local
+// and the app was opened from the Expo dev server, we swap in the laptop's address that
+// Expo Go already used to load the app (e.g. 192.168.1.25). No per-network edits needed.
 const DEFAULT_BASE_URL = 'http://127.0.0.1:5000/api/v1';
-const BASE_URL =
-  Constants.expoConfig?.extra?.apiUrl ||
-  process.env.EXPO_PUBLIC_API_URL ||
-  DEFAULT_BASE_URL;
+const LOCAL_HOST_RE = /^(https?:\/\/)(127\.0\.0\.1|localhost)(?=[:/]|$)/;
+
+const resolveBaseUrl = () => {
+  const configured =
+    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl || DEFAULT_BASE_URL;
+
+  if (Platform.OS === 'web' || !LOCAL_HOST_RE.test(configured)) return configured;
+
+  const devHost = (Constants.expoConfig?.hostUri || '').split(':')[0];
+  return devHost ? configured.replace(LOCAL_HOST_RE, `$1${devHost}`) : configured;
+};
+
+const BASE_URL = resolveBaseUrl();
 
 let accessToken = null;
 let logoutCallback = null;
