@@ -1,4 +1,5 @@
-const { WorkoutLog } = require('../models');
+const { WorkoutLog, ActivityLog } = require('../models');
+const { ACTIVITY_LOG_ACTIONS } = require('../config/constants');
 const AppError = require('../utils/AppError');
 const { todayUTC, diffDaysUTC } = require('../utils/date');
 
@@ -28,6 +29,25 @@ const saveWorkout = async (userId, { date, workoutType, durationMin, notes, exer
     exercises: cleaned,
   });
   await log.save();
+
+  // One feed entry per logged day, kept in sync when the log is edited
+  const topExercises = log.exercises.slice(0, 3).map((e) => e.name);
+  await ActivityLog.findOneAndUpdate(
+    { userId, action: ACTIVITY_LOG_ACTIONS.WORKOUT_LOGGED, 'metadata.date': day },
+    {
+      // userId, action and metadata.date come from the filter on insert
+      $set: {
+        'metadata.workoutType': log.workoutType,
+        'metadata.exercises': log.exercises.length,
+        'metadata.topExercises': topExercises,
+        'metadata.totalSets': log.totalSets,
+        'metadata.totalVolume': log.totalVolume,
+        'metadata.durationMin': log.durationMin,
+      },
+    },
+    { upsert: true }
+  ).catch(() => {});
+
   return log;
 };
 
@@ -42,6 +62,7 @@ const listWorkouts = (userId, { before, limit = 20 } = {}) => {
 const deleteWorkout = async (userId, date) => {
   const res = await WorkoutLog.deleteOne({ userId, date });
   if (!res.deletedCount) throw new AppError('No workout logged for that day.', 404);
+  await ActivityLog.deleteOne({ userId, action: ACTIVITY_LOG_ACTIONS.WORKOUT_LOGGED, 'metadata.date': date }).catch(() => {});
 };
 
 /**

@@ -406,7 +406,15 @@ export default function HomeScreen({ navigation }) {
 
       <View style={styles.grid}>
         <TouchableOpacity
-          style={[styles.gridItem, { borderColor: COLORS.secondary, marginRight: 4, marginLeft: 0 }]}
+          style={[styles.gridItem, { borderColor: COLORS.accent, marginRight: 4, marginLeft: 0 }]}
+          onPress={() => navigation.navigate('Feed')}
+        >
+          <Text style={styles.gridEmoji}>👥</Text>
+          <Text style={styles.gridTitle}>Feed</Text>
+          <Text style={styles.gridDesc}>Buddy activity.</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.gridItem, { borderColor: COLORS.secondary, marginRight: 4, marginLeft: 4 }]}
           onPress={() => navigation.navigate('Workouts')}
         >
           <Text style={styles.gridEmoji}>📈</Text>

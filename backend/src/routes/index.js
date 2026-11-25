@@ -12,6 +12,7 @@ const leaderboardRoutes = require('./leaderboard.routes');
 const aiRoutes = require('./ai.routes');
 const notificationRoutes = require('./notification.routes');
 const workoutRoutes = require('./workout.routes');
+const feedRoutes = require('./feed.routes');
 
 const router = express.Router();
 
@@ -28,5 +29,6 @@ router.use('/leaderboard', leaderboardRoutes);
 router.use('/ai', aiRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/workouts', workoutRoutes);
+router.use('/feed', feedRoutes);
 
 module.exports = router;

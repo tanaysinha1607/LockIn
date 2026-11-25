@@ -440,6 +440,18 @@ export const workoutApi = {
   remove: (date) => apiCall(`/workouts/${date}`, { method: 'DELETE' }),
 };
 
+export const feedApi = {
+  get: (before = null, limit = 30) =>
+    apiCall(`/feed?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ''}`, { method: 'GET' }),
+
+  // emoji null removes your reaction
+  react: (activityId, emoji) =>
+    apiCall(`/feed/${activityId}/reaction`, {
+      method: 'PUT',
+      body: JSON.stringify({ emoji }),
+    }),
+};
+
 export const recapApi = {
   // week: 'current' (Mon..today) or 'last'
   get: (week = 'current') => apiCall(`/users/me/recap?week=${week}`, { method: 'GET' }),

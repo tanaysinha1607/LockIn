@@ -21,6 +21,17 @@ const activityLogSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Buddy feed reactions: one emoji per reacting user
+    reactions: {
+      type: [
+        {
+          _id: false,
+          userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+          emoji: { type: String, required: true },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,

@@ -112,6 +112,15 @@
 - `npm run verify:phase7` covers workouts and recap (added to `verify:all`).
 - Mobile needs `npx expo install expo-sharing react-native-view-shot` after pulling.
 
+## Feature: buddy activity feed (Nov 25)
+
+- `GET /feed` (cursor `before`): you + active buddies, newest first, from `ActivityLog` — check-ins (with streak), lock-ins (shown once per pair), badges, completed challenges, logged workouts. Joined challenges, messages and profile edits stay private.
+- Reactions: `PUT /feed/:activityId/reaction { emoji }` (🔥 💪 👏 🔒 😤, `null` removes; one per person). The owner gets a push for a new reaction (`buddyActivity` preference).
+- Logging/editing a workout keeps one `workout_logged` feed entry per day in sync; deleting the workout removes it. Lock-in logs now store `buddyId`.
+- Mobile: 👥 Feed tile on Home → `FeedScreen` with reaction bar, pull to refresh, infinite scroll.
+
+## Next: switch AI coach from OpenAI to Grok (xAI)
+
 ## Verification (Nov 17, against Atlas)
 
 - `verify` 22/22, `verify:phase5` 23/23 (after fixing the script sending `firstName` to the profile endpoint), `verify:phase6` 17/17 (fallback mode, no OpenAI key).

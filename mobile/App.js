@@ -21,6 +21,7 @@ import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen
 import WeeklyRecapScreen from './src/screens/WeeklyRecapScreen';
 import WorkoutLogScreen from './src/screens/WorkoutLogScreen';
 import WorkoutsScreen from './src/screens/WorkoutsScreen';
+import FeedScreen from './src/screens/FeedScreen';
 import { listenForPushTaps } from './src/utils/push';
 import { routeForNotification, setPendingRoute } from './src/utils/notificationRoutes';
 
@@ -73,6 +74,7 @@ export default function App() {
         <Stack.Screen name="WeeklyRecap" component={WeeklyRecapScreen} />
         <Stack.Screen name="WorkoutLog" component={WorkoutLogScreen} />
         <Stack.Screen name="Workouts" component={WorkoutsScreen} />
+        <Stack.Screen name="Feed" component={FeedScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

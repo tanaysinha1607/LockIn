@@ -150,7 +150,8 @@ module.exports = {
     SESSION_REMINDER: 'session_reminder',
     BUDDY_CHECK_IN: 'buddy_check_in',
     BUDDY_NUDGE: 'buddy_nudge',
-    WEEKLY_RECAP: 'weekly_recap'
+    WEEKLY_RECAP: 'weekly_recap',
+    FEED_REACTION: 'feed_reaction'
   },
 
   ACTIVITY_LOG_ACTIONS: {
@@ -168,7 +169,8 @@ module.exports = {
     SESSION_SCHEDULED: 'session_scheduled',
     SESSION_COMPLETED: 'session_completed',
     SESSION_MISSED: 'session_missed',
-    PROFILE_UPDATED: 'profile_updated'
+    PROFILE_UPDATED: 'profile_updated',
+    WORKOUT_LOGGED: 'workout_logged'
   },
 
   DAYS_OF_WEEK: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],

@@ -234,6 +234,21 @@ async function run() {
   const notifsA2 = await request('GET', '/notifications', null, tokenA);
   log('A got a lock_in notification', (notifsA2.json.data?.notifications || []).some((n) => n.type === 'lock_in' && /Locked in with/.test(n.title)));
 
+  // Buddy feed
+  const feedA = await request('GET', '/feed', null, tokenA);
+  const items = feedA.json.data?.items || [];
+  const bCheckIn = items.find((i) => i.action === 'check_in' && !i.isMine);
+  log('Feed shows buddy check-ins', feedA.ok && !!bCheckIn);
+  log('Feed shows the lock-in once (not once per buddy)', items.filter((i) => i.action === 'lock_in').length === 1);
+  if (bCheckIn) {
+    const r1 = await request('PUT', `/feed/${bCheckIn._id}/reaction`, { emoji: '🔥' }, tokenA);
+    log('React to a buddy check-in', r1.ok && r1.json.data?.counts?.['🔥'] === 1 && r1.json.data?.mine === '🔥');
+    const r2 = await request('PUT', `/feed/${bCheckIn._id}/reaction`, { emoji: '🍕' }, tokenA);
+    log('Unsupported emoji is rejected', r2.status === 400);
+    const r3 = await request('PUT', `/feed/${bCheckIn._id}/reaction`, { emoji: null }, tokenA);
+    log('Remove a reaction', r3.ok && !r3.json.data?.counts?.['🔥'] && r3.json.data?.mine === null);
+  }
+
   // 7. Leaderboard
   const leaderGlobal = await request('GET', '/leaderboard?filter=global&sortBy=xp', null, tokenA);
   log('GET /leaderboard global XP', leaderGlobal.ok && leaderGlobal.json.data?.leaderboard?.length >= 2);

@@ -22,6 +22,8 @@ export const routeForNotification = (type, data = {}) => {
     case 'buddy_check_in':
     case 'buddy_nudge':
       return { name: 'Home' };
+    case 'feed_reaction':
+      return { name: 'Feed' };
     case 'weekly_recap':
       return { name: 'WeeklyRecap', params: { week: data.week || 'current' } };
     case 'session_reminder':
@@ -62,4 +64,5 @@ export const NOTIFICATION_ICONS = {
   buddy_check_in: '💪',
   buddy_nudge: '👊',
   weekly_recap: '📊',
+  feed_reaction: '🔥',
 };

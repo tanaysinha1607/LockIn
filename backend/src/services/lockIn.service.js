@@ -115,11 +115,14 @@ const recordMutualLockIns = async (userId, today) => {
     ]).catch((err) => logger.warn(`Lock-in notification failed: ${err.message}`));
 
     ActivityLog.insertMany(
-      [userId, buddyId].map((uid) => ({
+      [
+        [userId, buddyId],
+        [buddyId, userId],
+      ].map(([uid, other]) => ({
         userId: uid,
         action: ACTIVITY_LOG_ACTIONS.LOCK_IN,
         xpChange: xp,
-        metadata: { matchId: m._id, lockInStreak: streak, date: today },
+        metadata: { matchId: m._id, buddyId: other, lockInStreak: streak, date: today },
       }))
     ).catch(() => {});
 
