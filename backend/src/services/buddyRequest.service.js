@@ -233,6 +233,7 @@ const getActiveMatches = async (userId) => {
       startedAt: m.startedAt,
       lockInCount: m.lockInCount || 0,
       lockInStreak: effectiveLockInStreak(m, today),
+      nudgedToday: m.lastNudgeBy?.get?.(String(userId)) === today,
       today: {
         you: iCheckedIn,
         buddy: Boolean(await CheckIn.exists({ userId: buddyUser._id, date: today })),

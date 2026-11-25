@@ -19,6 +19,9 @@ export const routeForNotification = (type, data = {}) => {
       return { name: 'ChatList' };
     case 'buddy_request':
       return { name: 'Buddy' };
+    case 'buddy_check_in':
+    case 'buddy_nudge':
+      return { name: 'Home' };
     case 'session_reminder':
     case 'lock_in':
       return { name: 'Sessions' };
@@ -54,4 +57,6 @@ export const NOTIFICATION_ICONS = {
   check_in_reminder: '⏰',
   streak_alert: '⚡',
   motivation: '💪',
+  buddy_check_in: '💪',
+  buddy_nudge: '👊',
 };

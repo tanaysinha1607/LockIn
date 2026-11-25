@@ -12,6 +12,11 @@ const OPTIONS = [
     description: 'When someone wants to be your gym buddy, or accepts your request.',
   },
   {
+    key: 'buddyActivity',
+    title: 'Buddy check-ins & nudges',
+    description: 'When a buddy checks in before you, or nudges you to get to the gym.',
+  },
+  {
     key: 'messages',
     title: 'Chat messages',
     description: 'New messages from your buddies while the app is closed.',

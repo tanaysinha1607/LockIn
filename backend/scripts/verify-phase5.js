@@ -183,6 +183,18 @@ async function run() {
   const checkInA = await request('POST', '/check-ins', checkInPayloadA, tokenA);
   log('User A Daily Check-in', checkInA.ok && checkInA.json.success);
 
+  // Nudges (B hasn't checked in yet)
+  const nudge1 = await request('POST', `/matches/${matchId}/nudge`, null, tokenA);
+  log('A can nudge B', nudge1.ok && nudge1.json.data?.nudged === true);
+  const nudge2 = await request('POST', `/matches/${matchId}/nudge`, null, tokenA);
+  log('Second nudge the same day is refused', nudge2.status === 429);
+  const nudgeBack = await request('POST', `/matches/${matchId}/nudge`, null, tokenB);
+  log('Cannot nudge a buddy who already checked in', nudgeBack.status === 400);
+  const notifsB2 = await request('GET', '/notifications', null, tokenB);
+  log('B got a buddy_nudge notification', (notifsB2.json.data?.notifications || []).some((n) => n.type === 'buddy_nudge'));
+  const meA1 = await request('GET', '/users/me', null, tokenA);
+  log('Streak freezes reported (starts with 2)', meA1.json.data?.accountability?.streak?.streakFreezes === 2);
+
   // Check badges for User A (Should unlock 'First Step' badge)
   const badgesA = await request('GET', '/badges', null, tokenA);
   const firstStepBadge = badgesA.json.data?.badges?.find(b => b.name === 'First Step');

@@ -34,6 +34,7 @@ const preferences = {
       checkInReminders: Joi.boolean(),
       motivationalNudges: Joi.boolean(),
       challengeUpdates: Joi.boolean(),
+      buddyActivity: Joi.boolean(),
     })
     .min(1),
 };

@@ -93,6 +93,7 @@ const userSchema = new mongoose.Schema(
       checkInReminders: { type: Boolean, default: true },
       motivationalNudges: { type: Boolean, default: true },
       challengeUpdates: { type: Boolean, default: true },
+      buddyActivity: { type: Boolean, default: true }, // buddy checked in / nudges
     },
   },
   {

@@ -25,6 +25,8 @@ const createCheckIn = asyncHandler(async (req, res) => {
       summary: result.summary,
       // Buddies you locked in with by this check-in: [{ buddyName, streak, xp, ... }]
       lockIns: result.lockIns || [],
+      // Streak freezes: { used, earned, left }
+      freezes: result.freezes,
     })
   );
 });

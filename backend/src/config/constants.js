@@ -147,7 +147,9 @@ module.exports = {
     CHALLENGE_UPDATE: 'challenge_update',
     LOCK_IN: 'lock_in',
     BADGE_EARNED: 'badge_earned',
-    SESSION_REMINDER: 'session_reminder'
+    SESSION_REMINDER: 'session_reminder',
+    BUDDY_CHECK_IN: 'buddy_check_in',
+    BUDDY_NUDGE: 'buddy_nudge'
   },
 
   ACTIVITY_LOG_ACTIONS: {

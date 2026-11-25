@@ -9,7 +9,7 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import { COLORS, SPACING } from '../theme/theme';
-import { userApi, authApi, checkInApi, notificationApi, buddyApi, getAccessToken } from '../utils/api';
+import { userApi, authApi, checkInApi, notificationApi, buddyApi, matchApi, getAccessToken } from '../utils/api';
 import { connectSocket, registerSocketListener } from '../utils/socket';
 import { registerForPushNotifications } from '../utils/push';
 import { takePendingRoute } from '../utils/notificationRoutes';
@@ -45,6 +45,19 @@ export default function HomeScreen({ navigation }) {
 
   const [buddies, setBuddies] = useState([]); // active matches with lockInStreak + today status
   const [lockInMsg, setLockInMsg] = useState(null);
+  const [nudging, setNudging] = useState(null); // matchId being nudged
+  const [freezeMsg, setFreezeMsg] = useState(null);
+
+  const handleNudge = async (m) => {
+    setNudging(m.matchId);
+    const res = await matchApi.nudge(m.matchId);
+    setNudging(null);
+    if (res.success || res.code === 'ALREADY_NUDGED') {
+      setBuddies((prev) => prev.map((b) => (b.matchId === m.matchId ? { ...b, nudgedToday: true } : b)));
+    } else {
+      loadBuddies(); // e.g. they checked in meanwhile
+    }
+  };
 
   const loadBuddies = () =>
     buddyApi.getActiveMatches().then((res) => {
@@ -82,6 +95,12 @@ export default function HomeScreen({ navigation }) {
       setCheckInDone(true);
       setCheckInVerified(Boolean(result.data.checkIn?.isVerified));
       setCheckInError(null);
+      const fz = result.data.freezes;
+      if (fz?.used) {
+        setFreezeMsg(`🧊 Streak saved! Used ${fz.used} freeze${fz.used === 1 ? '' : 's'} for the day${fz.used === 1 ? '' : 's'} you missed. ${fz.left} left.`);
+      } else if (fz?.earned) {
+        setFreezeMsg(`🧊 You earned a streak freeze! You now have ${fz.left}.`);
+      }
       const lockIns = result.data.lockIns || [];
       if (lockIns.length) {
         setLockInMsg(
@@ -232,8 +251,15 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.successText}>
               {checkInVerified === false ? '✓ Checked in (location not verified)' : '✓ Checked in at your gym'}
             </Text>
+            {freezeMsg && <Text style={styles.freezeNote}>{freezeMsg}</Text>}
           </View>
         ) : (
+          <>
+          {accountability?.streak?.frozenDays > 0 && (
+            <Text style={[styles.freezeNote, { marginTop: 0, marginBottom: SPACING.sm }]}>
+              🧊 You missed {accountability.streak.frozenDays} day{accountability.streak.frozenDays === 1 ? '' : 's'}. Check in today and a freeze keeps your {accountability.streak.currentStreak}-day streak alive.
+            </Text>
+          )}
           <>
           {checkInError && (
             <View style={styles.checkInErrorBox}>
@@ -260,6 +286,7 @@ export default function HomeScreen({ navigation }) {
               </Text>
             )}
           </TouchableOpacity>
+          </>
           </>
         )}
       </View>
@@ -296,6 +323,15 @@ export default function HomeScreen({ navigation }) {
                     {status}
                   </Text>
                 </View>
+                {!m.today?.buddy && (
+                  <TouchableOpacity
+                    style={[styles.nudgeButton, m.nudgedToday && styles.nudgeDone]}
+                    onPress={() => handleNudge(m)}
+                    disabled={m.nudgedToday || nudging === m.matchId}
+                  >
+                    <Text style={styles.nudgeText}>{m.nudgedToday ? 'Nudged ✓' : nudging === m.matchId ? '…' : '👊 Nudge'}</Text>
+                  </TouchableOpacity>
+                )}
                 <View style={styles.lockInStreakBox}>
                   <Text style={styles.lockInStreakNum}>{streak}</Text>
                   <Text style={styles.lockInStreakLbl}>{streak === 1 ? 'day' : 'days'}</Text>
@@ -378,8 +414,8 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.statLabel}>Active Streak</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{profile?.gymName ? '1' : '0'}</Text>
-            <Text style={styles.statLabel}>Gym Linked</Text>
+            <Text style={styles.statValue}>🧊 {accountability?.streak?.streakFreezes ?? 0}</Text>
+            <Text style={styles.statLabel}>Streak Freezes</Text>
           </View>
         </View>
 
@@ -570,6 +606,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: SPACING.sm,
+  },
+  freezeNote: {
+    color: COLORS.secondary,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: SPACING.sm,
+    textAlign: 'center',
+  },
+  nudgeButton: {
+    borderColor: COLORS.warning,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    marginRight: SPACING.sm,
+  },
+  nudgeDone: {
+    borderColor: COLORS.border,
+    opacity: 0.6,
+  },
+  nudgeText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '700',
   },
   lockInCard: {
     backgroundColor: COLORS.surface,

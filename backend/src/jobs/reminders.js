@@ -105,11 +105,18 @@ const MESSAGES = {
     title: 'Time to lock in 💪',
     body: `Your usual session starts now${name ? `, ${name}` : ''}. Check in when you get to the gym.`,
   }),
-  streak: (name, days) => ({
-    type: NOTIFICATION_TYPES.STREAK_ALERT,
-    title: `Your ${days}-day streak ends tonight 🔥`,
-    body: `Get a check-in in before the day is over${name ? `, ${name}` : ''} — don't let it reset.`,
-  }),
+  streak: (name, days, freezes = 0) =>
+    freezes > 0
+      ? {
+          type: NOTIFICATION_TYPES.STREAK_ALERT,
+          title: `Keep your ${days}-day streak 🔥`,
+          body: `Check in today${name ? `, ${name}` : ''} — otherwise one of your ${freezes} 🧊 freeze${freezes === 1 ? '' : 's'} gets used.`,
+        }
+      : {
+          type: NOTIFICATION_TYPES.STREAK_ALERT,
+          title: `Your ${days}-day streak ends tonight 🔥`,
+          body: `Get a check-in in before the day is over${name ? `, ${name}` : ''} — you have no freezes left.`,
+        },
 };
 
 /**
@@ -133,7 +140,7 @@ const runReminderSweep = async (now = new Date()) => {
     try {
       const [profile, streak, checkedInToday] = await Promise.all([
         Profile.findOne({ userId: user._id }).select('preferredWorkoutDays preferredWorkoutTime').lean(),
-        Streak.findOne({ userId: user._id }).select('currentStreak lastCheckInDate').lean(),
+        Streak.findOne({ userId: user._id }).select('currentStreak lastCheckInDate streakFreezes').lean(),
         CheckIn.exists({ userId: user._id, date: today }),
       ]);
 
@@ -154,7 +161,7 @@ const runReminderSweep = async (now = new Date()) => {
         );
         if (!claimed.modifiedCount) continue;
 
-        const msg = kind === 'checkIn' ? MESSAGES.checkIn(user.firstName) : MESSAGES.streak(user.firstName, streak.currentStreak);
+        const msg = kind === 'checkIn' ? MESSAGES.checkIn(user.firstName) : MESSAGES.streak(user.firstName, streak.currentStreak, streak.streakFreezes || 0);
         await notify({ userId: user._id, ...msg, data: {} }, { store: false });
         sent += 1;
       }

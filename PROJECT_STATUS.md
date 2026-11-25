@@ -96,6 +96,13 @@
 - `GET /buddy-requests/active` now returns `lockInStreak`, `lockInCount`, `today: { you, buddy }`. `POST /check-ins` returns `lockIns`.
 - Home: 🔒 LockIn Streaks card (per buddy: streak, "your turn!" / "waiting for X"). Buddies tab shows streak, best and total.
 
+## Features: buddy alerts, nudges & streak freezes (Nov 25)
+
+- **Buddy check-in alert** (push only): when you check in, each buddy who hasn't yet gets "X just checked in 💪 — your turn".
+- **Nudge**: `POST /matches/:matchId/nudge`, once per buddy per day (`Match.lastNudgeBy`), refused if they already checked in. Goes to their list + phone. Home's LockIn card has a 👊 Nudge button per buddy.
+- Both respect a new preference `buddyActivity` (settings switch "Buddy check-ins & nudges").
+- **Streak freezes** (`utils/streak.js`): each missed day uses one freeze; start with 2, earn 1 every 7 streak days, max 3. Check-in response returns `freezes { used, earned, left }`; `/users/me` shows the effective streak (0 once missed days exceed freezes) plus `streakFreezes` and `frozenDays`. Home shows 🧊 count, "streak saved" and "a freeze will cover it" messages. Streak reminder wording mentions freezes.
+
 ## Verification (Nov 17, against Atlas)
 
 - `verify` 22/22, `verify:phase5` 23/23 (after fixing the script sending `firstName` to the profile endpoint), `verify:phase6` 17/17 (fallback mode, no OpenAI key).

@@ -220,6 +220,12 @@ export const matchApi = {
     apiCall('/matches/suggestions', {
       method: 'GET',
     }),
+
+  // Once per buddy per day; fails with code ALREADY_NUDGED / ALREADY_CHECKED_IN
+  nudge: (matchId) =>
+    apiCall(`/matches/${matchId}/nudge`, {
+      method: 'POST',
+    }),
 };
 
 export const buddyApi = {

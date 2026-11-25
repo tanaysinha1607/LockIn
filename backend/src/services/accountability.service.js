@@ -2,6 +2,7 @@ const CheckIn = require('../models/CheckIn');
 const Streak = require('../models/Streak');
 const Profile = require('../models/Profile');
 const { todayUTC, addDaysUTC } = require('../utils/date');
+const { effectiveStreak } = require('../utils/streak');
 
 const clampPct = (n) => Math.max(0, Math.min(100, Math.round(n)));
 
@@ -35,7 +36,10 @@ const getAccountabilitySummary = async (userId, dateStr = todayUTC()) => {
     todayCheckIn: todayCheckIn || null,
     streak: streak
       ? {
-          currentStreak: streak.currentStreak,
+          // Shown streak: 0 once missed days exceed freezes (stored value updates on next check-in)
+          currentStreak: effectiveStreak(streak, today).current,
+          frozenDays: effectiveStreak(streak, today).frozenDays,
+          streakFreezes: streak.streakFreezes ?? 0,
           longestStreak: streak.longestStreak,
           lastCheckInDate: streak.lastCheckInDate,
           totalCheckIns: streak.totalCheckIns,

@@ -201,27 +201,24 @@ const createDailyCheckIn = async (userId, checkInBody = {}) => {
     throw new AppError('You have already checked in today.', 400);
   }
 
-  const yesterday = addDaysUTC(today, -1);
+  // Streak with freezes: a freeze covers each missed day if you have enough of them
+  const { resolveCheckInStreak, freezesAfter } = require('../utils/streak');
+  const resolved = resolveCheckInStreak(streak, today);
+  const nextCurrentStreak = resolved.next;
+  const freezesUsed = resolved.freezesUsed;
+  const streakReset = resolved.reset;
 
-  let nextCurrentStreak = 1;
-  let streakReset = false;
-
-  if (streak.lastCheckInDate === yesterday) {
-    nextCurrentStreak = (streak.currentStreak || 0) + 1;
-  } else if (streak.lastCheckInDate) {
-    // missed at least one day -> finalize previous streak segment
-    if ((streak.currentStreak || 0) > 0) {
-      const endDate = streak.lastCheckInDate;
-      const startDate = computeStreakStartDate(endDate, streak.currentStreak);
-      streak.streakHistory = streak.streakHistory || [];
-      streak.streakHistory.push({
-        startDate,
-        endDate,
-        length: streak.currentStreak,
-      });
-    }
-    streakReset = true;
+  if (streakReset && (streak.currentStreak || 0) > 0) {
+    // Ran out of freezes -> archive the old streak segment
+    const endDate = streak.lastCheckInDate;
+    streak.streakHistory = streak.streakHistory || [];
+    streak.streakHistory.push({
+      startDate: computeStreakStartDate(endDate, streak.currentStreak),
+      endDate,
+      length: streak.currentStreak,
+    });
   }
+  const freezeResult = freezesAfter(streak.streakFreezes ?? 2, freezesUsed, nextCurrentStreak);
 
   // Location check happens before anything is written
   const verification = verifyCheckInLocation(gymProfile, checkInBody.location);
@@ -256,6 +253,7 @@ const createDailyCheckIn = async (userId, checkInBody = {}) => {
   streak.longestStreak = Math.max(streak.longestStreak || 0, nextCurrentStreak);
   streak.lastCheckInDate = today;
   streak.totalCheckIns = (streak.totalCheckIns || 0) + 1;
+  streak.streakFreezes = freezeResult.freezes;
 
   // Weekly/monthly counters and consistency score (based on last 7/30 days, includes today)
   const summary = await getAccountabilitySummary(userId, today);
@@ -267,6 +265,14 @@ const createDailyCheckIn = async (userId, checkInBody = {}) => {
     Profile.updateOne({ userId }, { $set: { consistencyScore: summary.metrics.computedConsistencyScore } }),
     awardXp(userId, xpEarned),
   ]);
+
+  // Tell buddies who haven't checked in yet (push only, best-effort)
+  try {
+    const { alertBuddiesOfCheckIn } = require('./lockIn.service');
+    alertBuddiesOfCheckIn(userId, today).catch(() => {});
+  } catch {
+    // ignore
+  }
 
   // Mutual lock-ins with buddies who also checked in today (best-effort)
   let lockIns = [];
@@ -310,6 +316,11 @@ const createDailyCheckIn = async (userId, checkInBody = {}) => {
     profile,
     summary: finalSummary,
     lockIns,
+    freezes: {
+      used: freezesUsed,
+      earned: freezeResult.earned,
+      left: freezeResult.freezes,
+    },
   };
 };
 

@@ -1,4 +1,5 @@
 const { Match, CheckIn, User, Streak, ActivityLog } = require('../models');
+const AppError = require('../utils/AppError');
 const { NOTIFICATION_TYPES, ACTIVITY_LOG_ACTIONS } = require('../config/constants');
 const { awardXp } = require('../utils/xp');
 const { addDaysUTC } = require('../utils/date');
@@ -128,7 +129,80 @@ const recordMutualLockIns = async (userId, today) => {
   return results;
 };
 
+/**
+ * After `userId` checks in, push "X just checked in" to each active buddy who hasn't
+ * checked in yet today. (Buddies who already have get the lock-in notification instead.)
+ * Push only: nothing is added to the in-app list.
+ */
+const alertBuddiesOfCheckIn = async (userId, today) => {
+  const { notify } = require('./notification.service');
+  const [me, matches] = await Promise.all([
+    User.findById(userId).select('firstName'),
+    Match.find({ users: userId, status: 'active' }).select('users'),
+  ]);
+  const name = me?.firstName || 'Your buddy';
+
+  await Promise.all(
+    matches.map(async (m) => {
+      const buddyId = m.users.find((u) => String(u) !== String(userId));
+      if (!buddyId || (await CheckIn.exists({ userId: buddyId, date: today }))) return;
+      await notify(
+        {
+          userId: buddyId,
+          type: NOTIFICATION_TYPES.BUDDY_CHECK_IN,
+          title: `${name} just checked in 💪`,
+          body: 'Your turn — check in today to lock in together.',
+          data: { matchId: m._id, buddyId: userId },
+        },
+        { store: false }
+      );
+    })
+  );
+};
+
+/**
+ * Nudge your buddy to get to the gym. Once per buddy per day, and only if they haven't
+ * checked in yet. Goes to their in-app list and their phone.
+ */
+const nudgeBuddy = async (userId, matchId, today) => {
+  const { notify } = require('./notification.service');
+  const match = await Match.findOne({ _id: matchId, users: userId, status: 'active' });
+  if (!match) throw new AppError('Buddy match not found.', 404);
+
+  const buddyId = match.users.find((u) => String(u) !== String(userId));
+  if (await CheckIn.exists({ userId: buddyId, date: today })) {
+    throw new AppError('Your buddy already checked in today.', 400, 'ALREADY_CHECKED_IN');
+  }
+
+  // Claim today's nudge atomically
+  const key = `lastNudgeBy.${userId}`;
+  const claimed = await Match.updateOne({ _id: match._id, [key]: { $ne: today } }, { $set: { [key]: today } });
+  if (!claimed.modifiedCount) {
+    throw new AppError('You already nudged your buddy today.', 429, 'ALREADY_NUDGED');
+  }
+
+  const [me, iCheckedIn] = await Promise.all([
+    User.findById(userId).select('firstName'),
+    CheckIn.exists({ userId, date: today }),
+  ]);
+  const name = me?.firstName || 'Your buddy';
+
+  await notify({
+    userId: buddyId,
+    type: NOTIFICATION_TYPES.BUDDY_NUDGE,
+    title: iCheckedIn ? `${name} is at the gym — where are you? 👀` : `${name} nudged you 👊`,
+    body: iCheckedIn
+      ? 'Check in today to lock in together and keep your streak.'
+      : `${name} wants you both at the gym today. Don't leave them hanging!`,
+    data: { matchId: match._id, buddyId: userId },
+  });
+
+  return { nudged: true };
+};
+
 module.exports = {
+  alertBuddiesOfCheckIn,
+  nudgeBuddy,
   recordMutualLockIns,
   effectiveLockInStreak,
   LOCK_IN_XP,

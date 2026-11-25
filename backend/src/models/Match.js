@@ -30,6 +30,12 @@ const matchSchema = new mongoose.Schema(
     },
     // Consecutive days both buddies checked in. lastDate is a UTC YYYY-MM-DD; a streak whose
     // lastDate is older than yesterday has broken (see lockIn.service effectiveLockInStreak).
+    // userId -> UTC date (YYYY-MM-DD) that user last nudged their buddy (one nudge a day)
+    lastNudgeBy: {
+      type: Map,
+      of: String,
+      default: {},
+    },
     lockInStreak: {
       current: { type: Number, default: 0 },
       longest: { type: Number, default: 0 },
