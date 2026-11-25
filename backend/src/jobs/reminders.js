@@ -18,6 +18,7 @@ const { logger } = require('../utils/logger');
 
 const REMINDER_WINDOW_MIN = 60; // check-in reminder fires during the first hour of your slot
 const STREAK_LOCAL_HOUR = 20;
+const RECAP_LOCAL_HOUR = 18; // Sunday evening
 const STREAK_HOURS_BEFORE_UTC_MIDNIGHT = 3;
 const DEFAULT_TIMEZONE = 'UTC';
 
@@ -82,6 +83,9 @@ const decideReminders = ({ now, timeZone, profile, streak, checkedInToday, remin
     due.push('checkIn');
   }
 
+  // 3. Weekly recap: Sunday evening, local time (independent of today's check-in)
+  // (handled in decideWeeklyRecap so it still goes out after you've checked in)
+
   // 2. Streak alert
   const minutesToUtcMidnight = 24 * 60 - (now.getUTCHours() * 60 + now.getUTCMinutes());
   const currentStreak = streak?.currentStreak || 0;
@@ -99,7 +103,34 @@ const decideReminders = ({ now, timeZone, profile, streak, checkedInToday, remin
   return due;
 };
 
+/**
+ * Weekly recap push: Sunday from 18:00 local time, once per week (keyed by UTC date).
+ */
+const localDateKey = (now, timeZone) => {
+  const tz = isValidTimezone(timeZone) ? timeZone : DEFAULT_TIMEZONE;
+  // en-CA formats as YYYY-MM-DD
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+};
+
+// Keyed by the user's LOCAL date: Sunday evening can span two UTC dates (e.g. New York)
+const decideWeeklyRecap = ({ now, timeZone, reminderLog = {} }) => {
+  const tz = isValidTimezone(timeZone) ? timeZone : DEFAULT_TIMEZONE;
+  const local = localTime(now, tz);
+  if (local.weekday !== 'sunday' || local.minutes < RECAP_LOCAL_HOUR * 60) return false;
+  return reminderLog.weeklyRecap !== localDateKey(now, tz);
+};
+
 const MESSAGES = {
+  weeklyRecap: async (userId) => {
+    const { getWeeklyRecap } = require('../services/recap.service');
+    const r = await getWeeklyRecap(userId, { week: 'current' });
+    const rank = r.buddyRank && r.buddyRank.of > 1 ? ` · #${r.buddyRank.rank} of ${r.buddyRank.of} buddies` : '';
+    return {
+      type: NOTIFICATION_TYPES.WEEKLY_RECAP,
+      title: 'Your week in LockIn 📊',
+      body: `${r.checkIns}${r.planned ? `/${r.planned}` : ''} check-ins · +${r.xp} XP${rank}. Tap to see your recap.`,
+    };
+  },
   checkIn: (name) => ({
     type: NOTIFICATION_TYPES.CHECK_IN_REMINDER,
     title: 'Time to lock in 💪',
@@ -130,9 +161,8 @@ const runReminderSweep = async (now = new Date()) => {
     isActive: true,
     isOnboarded: true,
     'pushTokens.0': { $exists: true },
-    'notificationPreferences.checkInReminders': { $ne: false },
-  })
-    .select('firstName timezone reminderLog')
+    })
+    .select('firstName timezone reminderLog notificationPreferences')
     .lean()
     .cursor();
 
@@ -144,7 +174,8 @@ const runReminderSweep = async (now = new Date()) => {
         CheckIn.exists({ userId: user._id, date: today }),
       ]);
 
-      const due = decideReminders({
+      const prefs = user.notificationPreferences || {};
+      const due = prefs.checkInReminders === false ? [] : decideReminders({
         now,
         timeZone: user.timezone,
         profile,
@@ -153,16 +184,24 @@ const runReminderSweep = async (now = new Date()) => {
         reminderLog: user.reminderLog || {},
       });
 
+      if (prefs.weeklyRecap !== false && decideWeeklyRecap({ now, timeZone: user.timezone, reminderLog: user.reminderLog || {} })) {
+        due.push('weeklyRecap');
+      }
+
       for (const kind of due) {
         // Claim the slot first so overlapping sweeps (or two servers) can't double-send
+        const slot = kind === 'weeklyRecap' ? localDateKey(now, user.timezone) : today;
         const claimed = await User.updateOne(
-          { _id: user._id, [`reminderLog.${kind}`]: { $ne: today } },
-          { $set: { [`reminderLog.${kind}`]: today } }
+          { _id: user._id, [`reminderLog.${kind}`]: { $ne: slot } },
+          { $set: { [`reminderLog.${kind}`]: slot } }
         );
         if (!claimed.modifiedCount) continue;
 
-        const msg = kind === 'checkIn' ? MESSAGES.checkIn(user.firstName) : MESSAGES.streak(user.firstName, streak.currentStreak, streak.streakFreezes || 0);
-        await notify({ userId: user._id, ...msg, data: {} }, { store: false });
+        let msg;
+        if (kind === 'checkIn') msg = MESSAGES.checkIn(user.firstName);
+        else if (kind === 'streak') msg = MESSAGES.streak(user.firstName, streak.currentStreak, streak.streakFreezes || 0);
+        else msg = await MESSAGES.weeklyRecap(user._id);
+        await notify({ userId: user._id, ...msg, data: kind === 'weeklyRecap' ? { week: 'current' } : {} }, { store: false });
         sent += 1;
       }
     } catch (err) {
@@ -174,4 +213,4 @@ const runReminderSweep = async (now = new Date()) => {
   return { sent };
 };
 
-module.exports = { runReminderSweep, decideReminders, isValidTimezone, localTime };
+module.exports = { runReminderSweep, decideReminders, decideWeeklyRecap, isValidTimezone, localTime };

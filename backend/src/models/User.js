@@ -80,6 +80,7 @@ const userSchema = new mongoose.Schema(
     reminderLog: {
       checkIn: { type: String, default: null },
       streak: { type: String, default: null },
+      weeklyRecap: { type: String, default: null },
     },
     // SHA-256 hashes of currently valid refresh tokens, one per signed-in device (newest last).
     refreshTokens: {
@@ -94,6 +95,7 @@ const userSchema = new mongoose.Schema(
       motivationalNudges: { type: Boolean, default: true },
       challengeUpdates: { type: Boolean, default: true },
       buddyActivity: { type: Boolean, default: true }, // buddy checked in / nudges
+      weeklyRecap: { type: Boolean, default: true },
     },
   },
   {

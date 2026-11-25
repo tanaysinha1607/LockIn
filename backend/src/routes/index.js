@@ -11,6 +11,7 @@ const badgeRoutes = require('./badge.routes');
 const leaderboardRoutes = require('./leaderboard.routes');
 const aiRoutes = require('./ai.routes');
 const notificationRoutes = require('./notification.routes');
+const workoutRoutes = require('./workout.routes');
 
 const router = express.Router();
 
@@ -26,5 +27,6 @@ router.use('/badges', badgeRoutes);
 router.use('/leaderboard', leaderboardRoutes);
 router.use('/ai', aiRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/workouts', workoutRoutes);
 
 module.exports = router;

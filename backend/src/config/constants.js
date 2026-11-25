@@ -149,7 +149,8 @@ module.exports = {
     BADGE_EARNED: 'badge_earned',
     SESSION_REMINDER: 'session_reminder',
     BUDDY_CHECK_IN: 'buddy_check_in',
-    BUDDY_NUDGE: 'buddy_nudge'
+    BUDDY_NUDGE: 'buddy_nudge',
+    WEEKLY_RECAP: 'weekly_recap'
   },
 
   ACTIVITY_LOG_ACTIONS: {

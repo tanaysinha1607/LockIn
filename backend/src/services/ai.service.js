@@ -254,7 +254,12 @@ Instructions:
 3. For training days, provide 4-6 appropriate, safe exercises tailored to their fitness level: ${profile.fitnessLevel}, goals: ${profile.fitnessGoals.join(', ')}, and workout types: ${profile.workoutTypes.join(', ')}.
 4. Avoid any text wrapper or markdown formatting like \`\`\`json. Output raw JSON.`;
 
+    const { trainingSummary } = require('./workout.service');
+    const recentTraining = await trainingSummary(userId, 8).catch(() => 'Unavailable');
+
     const userPrompt = `Generate the plan for:
+- Recent logged workouts (use these to pick realistic starting weights and progress from them):
+${recentTraining}
 - User bio: ${profile.bio || 'None'}
 - Fitness Level: ${profile.fitnessLevel}
 - Commitment Type: ${profile.commitmentType}
@@ -409,6 +414,9 @@ const chatWithCoach = async (userId, user, profile, userMessage, messageHistory 
     return `"${s.title}" on ${dateStr}`;
   });
 
+  const { trainingSummary } = require('./workout.service');
+  const recentTraining = await trainingSummary(userId, 5).catch(() => 'Unavailable');
+
   const level = profile.level || 1;
   const xp = profile.xp || 0;
   const currentStreak = streak ? streak.currentStreak : 0;
@@ -433,9 +441,11 @@ User Context:
 - Active Gym Buddies: ${activeBuddies.length > 0 ? activeBuddies.join(', ') : 'None'}
 - Active Joined Challenges: ${activeChallenges.length > 0 ? activeChallenges.join(', ') : 'None'}
 - Upcoming Scheduled Workout Sessions: ${sessionsText.length > 0 ? sessionsText.join(', ') : 'None'}
+- Recently logged workouts (exercise sets x top set):
+${recentTraining}
 
 Instructions:
-1. Act as their personal accountability partner. Reference their streak, check-ins, challenges, or buddy sessions whenever relevant to answer their query.
+1. Act as their personal accountability partner. Reference their streak, check-ins, logged workouts (weights, progress), challenges, or buddy sessions whenever relevant to answer their query.
 2. Be inspiring, direct, and actionable. Lock in and push them to gym consistency!
 3. Keep your response under 150 words. Be brief and suitable for reading on a mobile bubble.
 4. If AI is unavailable or fails, answer with general motivation referencing their goals: ${profile.fitnessGoals.join(', ')}.`;

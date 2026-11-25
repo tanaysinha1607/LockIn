@@ -15,6 +15,7 @@ const UserBadge = require('./UserBadge');
 const Session = require('./Session');
 const Notification = require('./Notification');
 const ActivityLog = require('./ActivityLog');
+const WorkoutLog = require('./WorkoutLog');
 
 module.exports = {
   User,
@@ -34,4 +35,5 @@ module.exports = {
   Session,
   Notification,
   ActivityLog,
+  WorkoutLog,
 };

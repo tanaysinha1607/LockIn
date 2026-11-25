@@ -42,7 +42,17 @@ const updateGymLocation = asyncHandler(async (req, res) => {
   res.status(200).json(ApiResponse.success('Gym location updated', { profile }));
 });
 
+/**
+ * GET /api/v1/users/me/recap?week=current|last
+ */
+const getWeeklyRecap = asyncHandler(async (req, res) => {
+  const { getWeeklyRecap: build } = require('../services/recap.service');
+  const recap = await build(req.user._id, { week: req.query.week });
+  res.status(200).json(ApiResponse.success('Weekly recap', { recap }));
+});
+
 module.exports = {
+  getWeeklyRecap,
   updateGymLocation,
   getMe,
   updateProfile,

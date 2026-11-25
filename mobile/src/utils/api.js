@@ -418,3 +418,29 @@ export const notificationApi = {
       body: JSON.stringify({ token }),
     }),
 };
+
+export const workoutApi = {
+  // { date?, workoutType?, durationMin?, notes?, exercises: [{ name, sets: [{ reps, weight }] }] }
+  save: (workout) =>
+    apiCall('/workouts', {
+      method: 'POST',
+      body: JSON.stringify(workout),
+    }),
+
+  today: () => apiCall('/workouts/today', { method: 'GET' }),
+
+  list: (before = null, limit = 20) =>
+    apiCall(`/workouts?limit=${limit}${before ? `&before=${before}` : ''}`, { method: 'GET' }),
+
+  exercises: () => apiCall('/workouts/exercises', { method: 'GET' }),
+
+  progress: (exercise, limit = 20) =>
+    apiCall(`/workouts/progress?exercise=${encodeURIComponent(exercise)}&limit=${limit}`, { method: 'GET' }),
+
+  remove: (date) => apiCall(`/workouts/${date}`, { method: 'DELETE' }),
+};
+
+export const recapApi = {
+  // week: 'current' (Mon..today) or 'last'
+  get: (week = 'current') => apiCall(`/users/me/recap?week=${week}`, { method: 'GET' }),
+};

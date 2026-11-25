@@ -103,6 +103,15 @@
 - Both respect a new preference `buddyActivity` (settings switch "Buddy check-ins & nudges").
 - **Streak freezes** (`utils/streak.js`): each missed day uses one freeze; start with 2, earn 1 every 7 streak days, max 3. Check-in response returns `freezes { used, earned, left }`; `/users/me` shows the effective streak (0 once missed days exceed freezes) plus `streakFreezes` and `frozenDays`. Home shows 🧊 count, "streak saved" and "a freeze will cover it" messages. Streak reminder wording mentions freezes.
 
+## Features: weekly recap & workout logging (Nov 25)
+
+- **Workout log** (`WorkoutLog`, one per user per UTC day, up to 7 days back): exercises with sets (reps × kg), type, duration, notes; totals computed on save. API: `POST /workouts` (create/replace), `GET /workouts`, `GET /workouts/today`, `GET /workouts/exercises`, `GET /workouts/progress?exercise=`, `DELETE /workouts/:date`. Exercise names are grouped case-insensitively.
+- Mobile: "📝 Log today's workout" after check-in, `WorkoutLogScreen` (quick-add chips from your history, set rows that copy the previous set), `WorkoutsScreen` (per-exercise bar chart of top weight / est. 1RM / volume + history).
+- **AI coach** now sees your last 5–8 logged workouts in chat and when generating plans.
+- **Weekly recap** (`GET /users/me/recap?week=current|last`): days checked in, check-ins vs planned days, XP, streak, lock-ins, workouts/sets/volume, badges, rank among buddies. `WeeklyRecapScreen` with "Share my week" — PNG via react-native-view-shot + expo-sharing on phones, share/copy text on web. Sunday 18:00 local push (once per local date), own preference `weeklyRecap`.
+- `npm run verify:phase7` covers workouts and recap (added to `verify:all`).
+- Mobile needs `npx expo install expo-sharing react-native-view-shot` after pulling.
+
 ## Verification (Nov 17, against Atlas)
 
 - `verify` 22/22, `verify:phase5` 23/23 (after fixing the script sending `firstName` to the profile endpoint), `verify:phase6` 17/17 (fallback mode, no OpenAI key).

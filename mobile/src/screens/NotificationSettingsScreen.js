@@ -27,6 +27,11 @@ const OPTIONS = [
     description: 'A nudge at your usual workout time, and a warning before your streak resets.',
   },
   {
+    key: 'weeklyRecap',
+    title: 'Weekly recap',
+    description: 'Sunday evening summary of your week: check-ins, XP and buddy ranking.',
+  },
+  {
     key: 'challengeUpdates',
     title: 'Challenge results',
     description: 'When you complete, win or lose a challenge.',

@@ -252,6 +252,9 @@ export default function HomeScreen({ navigation }) {
               {checkInVerified === false ? '✓ Checked in (location not verified)' : '✓ Checked in at your gym'}
             </Text>
             {freezeMsg && <Text style={styles.freezeNote}>{freezeMsg}</Text>}
+            <TouchableOpacity style={styles.logWorkoutButton} onPress={() => navigation.navigate('WorkoutLog')}>
+              <Text style={styles.logWorkoutText}>📝 Log today's workout</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <>
@@ -398,6 +401,25 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.gridEmoji}>🥇</Text>
           <Text style={styles.gridTitle}>Leaderboard</Text>
           <Text style={styles.gridDesc}>Compare ranks.</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.grid}>
+        <TouchableOpacity
+          style={[styles.gridItem, { borderColor: COLORS.secondary, marginRight: 4, marginLeft: 0 }]}
+          onPress={() => navigation.navigate('Workouts')}
+        >
+          <Text style={styles.gridEmoji}>📈</Text>
+          <Text style={styles.gridTitle}>Workouts</Text>
+          <Text style={styles.gridDesc}>Log & progress.</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.gridItem, { borderColor: COLORS.gold, marginRight: 0, marginLeft: 4 }]}
+          onPress={() => navigation.navigate('WeeklyRecap')}
+        >
+          <Text style={styles.gridEmoji}>📊</Text>
+          <Text style={styles.gridTitle}>Weekly Recap</Text>
+          <Text style={styles.gridDesc}>Your week, shareable.</Text>
         </TouchableOpacity>
       </View>
 
@@ -606,6 +628,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: SPACING.sm,
+  },
+  logWorkoutButton: {
+    marginTop: SPACING.sm,
+    paddingVertical: 6,
+  },
+  logWorkoutText: {
+    color: COLORS.secondary,
+    fontWeight: '800',
+    fontSize: 14,
   },
   freezeNote: {
     color: COLORS.secondary,
