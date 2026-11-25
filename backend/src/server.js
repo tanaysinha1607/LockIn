@@ -16,11 +16,14 @@ const http = require('http');
 const mongoose = require('mongoose');
 const { initializeSocket } = require('./socket');
 const challengeService = require('./services/challenge.service');
+const { runReminderSweep } = require('./jobs/reminders');
 
 const CHALLENGE_SWEEP_MS = 60 * 60 * 1000; // hourly
+const REMINDER_SWEEP_MS = 10 * 60 * 1000; // every 10 minutes
 
 const server = http.createServer(app);
 let challengeTimer = null;
+let reminderTimer = null;
 
 const start = async () => {
   await connectDB();
@@ -42,11 +45,21 @@ const start = async () => {
   sweepChallenges();
   challengeTimer = setInterval(sweepChallenges, CHALLENGE_SWEEP_MS);
   challengeTimer.unref();
+
+  // Daily check-in and streak reminders (push only). Set REMINDERS_ENABLED=false to turn off.
+  if (process.env.REMINDERS_ENABLED !== 'false') {
+    const sweepReminders = () =>
+      runReminderSweep().catch((err) => logger.error(`Reminder sweep failed: ${err.message}`));
+    sweepReminders();
+    reminderTimer = setInterval(sweepReminders, REMINDER_SWEEP_MS);
+    reminderTimer.unref();
+  }
 };
 
 const shutdown = (signal) => {
   logger.info(`${signal} received. Closing server...`);
   if (challengeTimer) clearInterval(challengeTimer);
+  if (reminderTimer) clearInterval(reminderTimer);
   server.close(async () => {
     await mongoose.connection.close().catch(() => {});
     if (redisClient) redisClient.disconnect();

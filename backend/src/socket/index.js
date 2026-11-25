@@ -18,7 +18,10 @@ const rateLimiter = new Map();
 const initializeSocket = (server) => {
   io = socketIo(server, {
     cors: {
-      origin: '*',
+      origin: (() => {
+        const { corsOrigins } = require('../config/environment');
+        return corsOrigins.length ? corsOrigins : '*';
+      })(),
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
     },
     pingTimeout: 60000,

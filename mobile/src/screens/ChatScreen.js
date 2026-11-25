@@ -320,7 +320,7 @@ export default function ChatScreen({ route, navigation }) {
         {/* Messages List */}
         <FlatList
           data={messages}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item, index) => String(item._id || item.tempId || `msg-${index}`)}
           renderItem={renderMessageItem}
           inverted
           contentContainerStyle={styles.messagesList}

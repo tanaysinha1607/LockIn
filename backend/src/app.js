@@ -7,14 +7,26 @@ const routes = require('./routes');
 const errorHandler = require('./middleware/error.middleware');
 const AppError = require('./utils/AppError');
 const redisClient = require('./config/redis');
+const config = require('./config/environment');
 
 const app = express();
+
+// Behind a hosting proxy (Render): use X-Forwarded-For for the client IP
+app.set('trust proxy', config.trustProxy);
 
 // Set security HTTP headers
 app.use(helmet());
 
-// Enable CORS
-app.use(cors());
+// CORS: in production only the listed website(s) may call the API from a browser
+app.use(
+  cors(
+    config.corsOrigins.length
+      ? {
+          origin: (origin, cb) => cb(null, !origin || config.corsOrigins.includes(origin)),
+        }
+      : {}
+  )
+);
 
 // Parse JSON request body
 app.use(express.json({ limit: '10kb' }));

@@ -327,9 +327,9 @@ export default function SessionsScreen({ navigation }) {
       <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
         <Text style={styles.formLabel}>Select Gym Buddy</Text>
         <View style={styles.selectContainer}>
-          {buddies.map(m => (
+          {buddies.map((m, idx) => (
             <TouchableOpacity
-              key={m.buddy?.user?._id}
+              key={String(m.buddy?.user?._id || m.matchId || idx)}
               style={[
                 styles.selectItem,
                 selectedBuddyId === m.buddy?.user?._id && styles.selectItemActive,

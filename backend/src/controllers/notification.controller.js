@@ -31,7 +31,7 @@ const markAllRead = asyncHandler(async (req, res) => {
 
 /** POST /api/v1/notifications/push-token { token } */
 const registerPushToken = asyncHandler(async (req, res) => {
-  await notificationService.registerPushToken(req.user._id, req.body.token);
+  await notificationService.registerPushToken(req.user._id, req.body.token, req.body.timezone);
   res.status(200).json(ApiResponse.success('Push token registered'));
 });
 

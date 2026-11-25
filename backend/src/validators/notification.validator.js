@@ -22,6 +22,7 @@ const pushToken = {
       .max(200)
       .required()
       .messages({ 'string.pattern.base': 'token must be an Expo push token' }),
+    timezone: Joi.string().max(64).optional(), // IANA name, e.g. "Asia/Dubai"
   }),
 };
 

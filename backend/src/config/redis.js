@@ -2,9 +2,11 @@ const Redis = require('ioredis');
 const config = require('./environment');
 const { logger } = require('../utils/logger');
 
-let redisClient;
+let redisClient = null;
 
-try {
+if (!config.redis.url) {
+  logger.info('REDIS_URL not set: running without Redis (rate limits use in-memory counters).');
+} else try {
   redisClient = new Redis(config.redis.url, {
     maxRetriesPerRequest: 1,
     retryStrategy(times) {

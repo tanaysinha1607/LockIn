@@ -22,7 +22,10 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "LockIn"
     },
     "extra": {
       "apiUrl": "http://127.0.0.1:5000/api/v1",

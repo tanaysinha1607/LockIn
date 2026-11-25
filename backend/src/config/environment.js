@@ -9,7 +9,9 @@ const envSchema = Joi.object({
   PORT: Joi.number().default(5000),
   NODE_ENV: Joi.string().valid('development', 'staging', 'production').default('development'),
   MONGODB_URI: Joi.string().required().description('MongoDB connection URI'),
-  REDIS_URL: Joi.string().required().description('Redis connection URL'),
+  REDIS_URL: Joi.string().allow('').optional().description('Redis connection URL (optional; rate limits fall back to memory)'),
+  CORS_ORIGINS: Joi.string().allow('').optional().description('Comma-separated website origins allowed to call the API, e.g. https://lockin.vercel.app'),
+  TRUST_PROXY: Joi.alternatives(Joi.number(), Joi.boolean(), Joi.string()).optional(),
   ACCESS_TOKEN_SECRET: Joi.string().min(8).required().description('JWT Access Token secret key'),
   REFRESH_TOKEN_SECRET: Joi.string().min(8).required().description('JWT Refresh Token secret key'),
   ACCESS_TOKEN_EXPIRE: Joi.string().default('15m'),
@@ -37,8 +39,15 @@ module.exports = {
     options: {}
   },
   redis: {
-    url: envVars.REDIS_URL
+    url: envVars.REDIS_URL || null
   },
+  // Empty list = allow any origin (development). Phones don't send an Origin, so they're unaffected.
+  corsOrigins: (envVars.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim().replace(/\/$/, ''))
+    .filter(Boolean),
+  // Render, Railway, Heroku etc. sit behind one proxy. Needed so rate limits see real client IPs.
+  trustProxy: envVars.TRUST_PROXY ?? (envVars.NODE_ENV === 'production' ? 1 : false),
   jwt: {
     accessSecret: envVars.ACCESS_TOKEN_SECRET,
     refreshSecret: envVars.REFRESH_TOKEN_SECRET,

@@ -71,6 +71,16 @@ const userSchema = new mongoose.Schema(
       default: [],
       select: false,
     },
+    // IANA timezone reported by the phone (e.g. "Asia/Dubai"), used to time reminders
+    timezone: {
+      type: String,
+      default: null,
+    },
+    // UTC date (YYYY-MM-DD) each daily reminder was last sent, so it goes out once a day
+    reminderLog: {
+      checkIn: { type: String, default: null },
+      streak: { type: String, default: null },
+    },
     // SHA-256 hashes of currently valid refresh tokens, one per signed-in device (newest last).
     refreshTokens: {
       type: [String],

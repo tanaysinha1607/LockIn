@@ -387,10 +387,17 @@ export const notificationApi = {
       method: 'PUT',
     }),
 
-  registerPushToken: (token) =>
+  registerPushToken: (token, timezone) =>
     apiCall('/notifications/push-token', {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, ...(timezone && { timezone }) }),
+    }),
+
+  // { buddyRequests?, messages?, checkInReminders?, challengeUpdates? } -> saved preferences
+  updatePreferences: (prefs) =>
+    apiCall('/notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(prefs),
     }),
 
   // Development helper: push to your own devices; returns { deviceCount, sent, errors }

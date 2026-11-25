@@ -131,12 +131,15 @@ export default function NotificationsScreen({ navigation }) {
         </TouchableOpacity>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Notifications</Text>
-          {unread > 0 && (
-            <TouchableOpacity onPress={markAll}>
-              <Text style={styles.markAll}>Mark all read</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={() => navigation.navigate('NotificationSettings')} accessibilityLabel="Notification settings">
+            <Text style={styles.settingsIcon}>⚙️</Text>
+          </TouchableOpacity>
         </View>
+        {unread > 0 && (
+          <TouchableOpacity onPress={markAll} style={styles.markAllRow}>
+            <Text style={styles.markAll}>Mark all read</Text>
+          </TouchableOpacity>
+        )}
         {__DEV__ && (
           <View style={styles.devBox}>
             <TouchableOpacity onPress={runPushTest} disabled={testing}>
@@ -198,6 +201,8 @@ const styles = StyleSheet.create({
   },
   devButton: { color: COLORS.warning, fontWeight: '700', fontSize: 13 },
   devText: { color: COLORS.textMuted, fontSize: 12, marginTop: SPACING.xs },
+  settingsIcon: { fontSize: 22 },
+  markAllRow: { alignSelf: 'flex-end', marginTop: SPACING.xs },
   markAll: { color: COLORS.secondary, fontSize: 13, fontWeight: '700' },
   list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl },
   item: {

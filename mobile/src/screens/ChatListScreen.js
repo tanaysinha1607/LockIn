@@ -295,7 +295,7 @@ export default function ChatListScreen({ navigation }) {
       {/* Conversations List */}
       <FlatList
         data={filteredConversations}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item, index) => String(item._id || index)}
         renderItem={renderConversationItem}
         contentContainerStyle={styles.listContent}
         refreshControl={

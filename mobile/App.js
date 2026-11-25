@@ -17,6 +17,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
 import { listenForPushTaps } from './src/utils/push';
 import { routeForNotification, setPendingRoute } from './src/utils/notificationRoutes';
 
@@ -65,6 +66,7 @@ export default function App() {
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

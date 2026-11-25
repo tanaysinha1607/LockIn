@@ -66,7 +66,9 @@ export const registerForPushNotifications = async () => {
     }
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    const result = await notificationApi.registerPushToken(token);
+    // Timezone lets the server send reminders at your local workout time
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const result = await notificationApi.registerPushToken(token, timezone);
     if (!result.success) {
       return finish('error', `Got a token but the server rejected it: ${result.message}`);
     }

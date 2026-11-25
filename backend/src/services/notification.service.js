@@ -123,7 +123,7 @@ const markAllRead = async (userId) => {
   return { updated: res.modifiedCount };
 };
 
-const registerPushToken = async (userId, token) => {
+const registerPushToken = async (userId, token, timezone) => {
   // Remove from any other account first (shared device / account switch), then add here
   await User.updateMany({ _id: { $ne: userId }, pushTokens: token }, { $pull: { pushTokens: token } });
   await User.updateOne({ _id: userId }, { $pull: { pushTokens: token } });
@@ -131,6 +131,12 @@ const registerPushToken = async (userId, token) => {
     { _id: userId },
     { $push: { pushTokens: { $each: [token], $slice: -MAX_PUSH_TOKENS } } }
   );
+
+  // Reminders are timed in the user's local time
+  const { isValidTimezone } = require('../jobs/reminders');
+  if (isValidTimezone(timezone)) {
+    await User.updateOne({ _id: userId }, { $set: { timezone } });
+  }
 };
 
 const removePushToken = (userId, token) => User.updateOne({ _id: userId }, { $pull: { pushTokens: token } });

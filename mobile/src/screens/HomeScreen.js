@@ -156,11 +156,18 @@ export default function HomeScreen({ navigation }) {
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')} accessibilityLabel="Open your profile">
           <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.name}>{user?.firstName || 'Gym Buddy'}</Text>
-        </View>
+          <Text style={styles.name}>{user?.firstName || 'Gym Buddy'} ›</Text>
+        </TouchableOpacity>
         <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+            accessibilityLabel="Profile"
+          >
+            <Text style={styles.profileInitial}>{user?.firstName?.[0]?.toUpperCase() || '👤'}</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.bellButton}
             onPress={() => navigation.navigate('Notifications')}
@@ -365,6 +372,22 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  profileButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceLight,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  profileInitial: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 14,
   },
   bellButton: {
     marginRight: SPACING.sm,

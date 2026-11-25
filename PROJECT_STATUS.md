@@ -73,6 +73,15 @@
 - Mobile: 🔔 with unread count on Home (live), `NotificationsScreen` (tap opens the right screen, mark all read, infinite scroll). Tapping a phone push opens the same screen, including from a cold start. Logout removes the device's push token.
 - **Phone push needs setup**: `npx expo install expo-notifications expo-device`, then `npx eas init` in `mobile/` (adds the EAS projectId). Android needs a development build (`npx expo run:android` or EAS) — Expo Go on Android doesn't receive remote push. Without this, everything except the phone banner still works.
 
+## Reminders, settings & push on iPhone (Nov 18)
+
+- Mobile upgraded to **Expo SDK 58** (Expo Go on iOS only runs the latest SDK). App renamed `LockIn` / slug `lockin`, linked to EAS project `28f0bc3e-…`.
+- Phone push confirmed working on iPhone (Expo Go). Android needs a development build.
+- The app finds the laptop's address automatically when opened from Expo Go (`api.js`), so `app.json` keeps `127.0.0.1`.
+- **Daily reminders** (`src/jobs/reminders.js`, every 10 min, push only): check-in nudge at the start of your usual workout slot on workout days, and "your N-day streak ends tonight" (20:00 local or 3 h before UTC midnight, whichever is first). Once per day each, skipped if you've checked in. Uses the phone's timezone, sent with the push token. Off with `REMINDERS_ENABLED=false` or the user's "Check-in & streak reminders" switch.
+- **Notification settings screen** (🔔 → ⚙️): switches for buddy requests, chat messages, reminders, challenge results; shows whether phone push is on.
+- Dev-only 🛠 "Send me a test push" on the Notifications screen (`POST /notifications/test-push`).
+
 ## Verification (Nov 17, against Atlas)
 
 - `verify` 22/22, `verify:phase5` 23/23 (after fixing the script sending `firstName` to the profile endpoint), `verify:phase6` 17/17 (fallback mode, no OpenAI key).
@@ -86,8 +95,7 @@
 |-----|--------|-------|
 | Accounts created before Nov 17 still have the New Delhi placeholder gym | Medium | Their first far-away check-in offers to move the gym; legacy profiles can move once without waiting. |
 | GPS can be spoofed on rooted/jailbroken phones or via browser dev tools | Low | Acceptable for now; mock-location detection needs native checks. |
-| No notification settings screen | Low | `PUT /notifications/preferences` exists; no UI for it yet. |
-| No scheduled reminders | Medium | `check_in_reminder` / `streak_alert` types exist but nothing sends them (needs a daily job). |
+| Reminders run inside the API server | Low | Fine for one server. If you run several, the per-day claim in `reminderLog` stops duplicates, but a separate worker would be cleaner. |
 | Name/email can't be edited | Low | Account fields aren't covered by `PUT /users/profile`. |
 | No password reset / email verification | Medium | |
 | Mutual daily check-ins don't increase `lockInCount` | Low | Only completed scheduled sessions do. `CheckIn.isLockIn` and `Streak.totalLockIns` are never set. |
@@ -137,6 +145,6 @@ For a **physical device**, set your machine's LAN IP in `mobile/app.json`:
 
 ## Next recommended work
 
-1. **Daily reminders**: "you haven't checked in" / "your streak ends tonight" pushes from a scheduled job, plus a notification settings screen.
-2. Password reset / email verification.
+1. Password reset / email verification.
+2. Deploy the backend (Render/Railway/Fly) + MongoDB Atlas production cluster, then EAS builds for the stores.
 3. Jest + Supertest suite against an in-memory MongoDB.
