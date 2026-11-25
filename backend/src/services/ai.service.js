@@ -1,10 +1,7 @@
-const { OpenAI } = require('openai');
-const config = require('../config/environment');
+const llm = require('../utils/llm');
 const { WorkoutPlan, DietPlan, Streak, ChallengeParticipation, Match, Session } = require('../models');
 const { logger } = require('../utils/logger');
 
-// Initialize OpenAI client
-const openai = config.openai.apiKey ? new OpenAI({ apiKey: config.openai.apiKey }) : null;
 
 /**
  * Helper to compute next level from XP
@@ -215,7 +212,7 @@ const getFallbackDietPlan = (userId, profile) => {
  * Generate Workout Plan using OpenAI
  */
 const generateWorkoutPlan = async (userId, profile) => {
-  if (!config.openai.enabled || !openai) {
+  if (!llm.isEnabled()) {
     logger.warn('AI integration is disabled or OpenAI client is uninitialized. Generating fallback workout plan.');
     return getFallbackWorkoutPlan(userId, profile);
   }
@@ -268,16 +265,13 @@ ${recentTraining}
 - Current injuries/concerns: ${profile.injuries.join(', ') || 'None'}
 - Gym Name: ${profile.gymName || 'Local Gym'}`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const parsedData = await llm.chat({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      response_format: { type: 'json_object' }
+      json: true
     });
-
-    const parsedData = JSON.parse(completion.choices[0].message.content);
 
     // Validate structure slightly before saving
     if (!parsedData.title || !parsedData.schedule || !Array.isArray(parsedData.schedule)) {
@@ -291,7 +285,7 @@ ${recentTraining}
       userId,
       ...parsedData,
       isActive: true,
-      generatedBy: 'gpt-4o',
+      generatedBy: await llm.getModel(),
       expiresAt
     };
   } catch (error) {
@@ -304,7 +298,7 @@ ${recentTraining}
  * Generate Diet Plan using OpenAI
  */
 const generateDietPlan = async (userId, profile) => {
-  if (!config.openai.enabled || !openai) {
+  if (!llm.isEnabled()) {
     logger.warn('AI integration is disabled or OpenAI client is uninitialized. Generating fallback diet plan.');
     return getFallbackDietPlan(userId, profile);
   }
@@ -352,16 +346,13 @@ Instructions:
 - Height: ${profile.height || 175} cm
 - Fitness Goals: ${profile.fitnessGoals.join(', ')}`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const parsedData = await llm.chat({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      response_format: { type: 'json_object' }
+      json: true
     });
-
-    const parsedData = JSON.parse(completion.choices[0].message.content);
 
     if (!parsedData.title || !parsedData.macros || !parsedData.meals) {
       throw new Error('Invalid JSON format received from AI for diet plan');
@@ -374,7 +365,7 @@ Instructions:
       userId,
       ...parsedData,
       isActive: true,
-      generatedBy: 'gpt-4o',
+      generatedBy: await llm.getModel(),
       expiresAt
     };
   } catch (error) {
@@ -450,7 +441,7 @@ Instructions:
 3. Keep your response under 150 words. Be brief and suitable for reading on a mobile bubble.
 4. If AI is unavailable or fails, answer with general motivation referencing their goals: ${profile.fitnessGoals.join(', ')}.`;
 
-  if (!config.openai.enabled || !openai) {
+  if (!llm.isEnabled()) {
     logger.warn('AI integration is disabled or OpenAI client is uninitialized. Returning fallback chat response.');
     return `Hey ${user.firstName}! I'm working in fallback mode right now, but I see your goal is ${profile.fitnessGoals.join(', ')}. Keep pushing towards your check-ins and stick with your gym buddies to unlock your full potential! Lock in!`;
   }
@@ -470,14 +461,11 @@ Instructions:
     messages.push(...recentHistory);
     messages.push({ role: 'user', content: userMessage });
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    return await llm.chat({
       messages,
-      max_tokens: 250,
+      maxTokens: 250,
       temperature: 0.7
     });
-
-    return completion.choices[0].message.content.trim();
   } catch (error) {
     logger.error('Failed to call OpenAI chat completion, returning fallback:', error);
     return `Hey ${user.firstName}! I ran into a minor connection issue with the server, but let me remind you to stay lock-in. Keep working on your consistency score (${consistencyScore}%) and don't break that ${currentStreak}-day streak! Let's get it.`;

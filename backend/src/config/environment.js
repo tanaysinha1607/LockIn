@@ -18,6 +18,11 @@ const envSchema = Joi.object({
   REFRESH_TOKEN_EXPIRE: Joi.string().default('7d'),
   OPENAI_API_KEY: Joi.string().allow('').optional().description('OpenAI Api Key (required when AI features are enabled)'),
   OPENAI_ORG_ID: Joi.string().allow('').optional(),
+  OPENAI_MODEL: Joi.string().allow('').optional(),
+  GROQ_API_KEY: Joi.string().allow('').optional().description('Groq API key (free tier); preferred when set'),
+  GROQ_MODEL: Joi.string().allow('').optional(),
+  XAI_API_KEY: Joi.string().allow('').optional().description('xAI (Grok) API key; used instead of OpenAI when set'),
+  XAI_MODEL: Joi.string().allow('').optional().description('Pin a Grok model; empty = auto-pick'),
   AI_ENABLED: Joi.boolean().default(true),
   AI_DAILY_BUDGET_CENTS: Joi.number().default(500),
   CHECKIN_RADIUS_METERS: Joi.number().min(50).max(5000).default(300),
@@ -59,6 +64,15 @@ module.exports = {
     // Default: GPS required in production, optional elsewhere so scripts and desktop testing work
     requireGps: envVars.CHECKIN_REQUIRE_GPS ?? envVars.NODE_ENV === 'production',
     gymLocationCooldownDays: envVars.GYM_LOCATION_COOLDOWN_DAYS,
+  },
+  ai: {
+    enabled: envVars.AI_ENABLED,
+    groqApiKey: envVars.GROQ_API_KEY || null,
+    groqModel: envVars.GROQ_MODEL || null,
+    xaiApiKey: envVars.XAI_API_KEY || null,
+    xaiModel: envVars.XAI_MODEL || null,
+    openaiApiKey: envVars.OPENAI_API_KEY || null,
+    openaiModel: envVars.OPENAI_MODEL || null,
   },
   openai: {
     apiKey: envVars.OPENAI_API_KEY,

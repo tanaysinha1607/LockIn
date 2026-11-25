@@ -22,7 +22,7 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         sync: false
-      - key: OPENAI_API_KEY
+      - key: GROQ_API_KEY
         sync: false
       - key: CHECKIN_REQUIRE_GPS
         value: "true"

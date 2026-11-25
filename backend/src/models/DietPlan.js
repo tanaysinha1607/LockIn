@@ -48,7 +48,7 @@ const dietPlanSchema = new mongoose.Schema(
     },
     generatedBy: {
       type: String,
-      default: 'gpt-4o',
+      default: 'ai',
     },
     expiresAt: {
       type: Date,
