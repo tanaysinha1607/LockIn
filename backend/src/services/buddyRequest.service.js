@@ -210,6 +210,12 @@ const getActiveMatches = async (userId) => {
     })
     .sort({ updatedAt: -1 });
 
+  const { effectiveLockInStreak } = require('./lockIn.service');
+  const CheckIn = require('../models/CheckIn');
+  const { todayUTC } = require('../utils/date');
+  const today = todayUTC();
+  const iCheckedIn = Boolean(await CheckIn.exists({ userId, date: today }));
+
   // Map matches to load profile for the other user in the pairing
   const result = [];
   for (const m of matches) {
@@ -225,6 +231,12 @@ const getActiveMatches = async (userId) => {
       scoreBreakdown: m.scoreBreakdown,
       conversationId: m.conversationId,
       startedAt: m.startedAt,
+      lockInCount: m.lockInCount || 0,
+      lockInStreak: effectiveLockInStreak(m, today),
+      today: {
+        you: iCheckedIn,
+        buddy: Boolean(await CheckIn.exists({ userId: buddyUser._id, date: today })),
+      },
       buddy: {
         user: buddyUser,
         profile: buddyProfile || null,

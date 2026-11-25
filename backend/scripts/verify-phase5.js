@@ -213,6 +213,15 @@ async function run() {
   // User A should have check-in XP (150) + badge XP (100) + lock-in XP (100) = 350 XP!
   log('User A awarded Lock-In bonus XP', meA.ok && meA.json.data?.profile?.xp >= 350);
 
+  // Shared buddy streak: both checked in today -> one mutual lock-in
+  const activeA = await request('GET', '/buddy-requests/active', null, tokenA);
+  const m = (activeA.json.data?.matches || []).find((x) => String(x.matchId) === String(matchId));
+  log('Mutual check-in started a 1-day LockIn streak', activeA.ok && m?.lockInStreak?.current === 1 && m?.lockInStreak?.lockedInToday === true);
+  log('Mutual check-in counted once in lockInCount', m?.lockInCount === 1);
+  log('Buddy list reports both checked in today', m?.today?.you === true && m?.today?.buddy === true);
+  const notifsA2 = await request('GET', '/notifications', null, tokenA);
+  log('A got a lock_in notification', (notifsA2.json.data?.notifications || []).some((n) => n.type === 'lock_in' && /Locked in with/.test(n.title)));
+
   // 7. Leaderboard
   const leaderGlobal = await request('GET', '/leaderboard?filter=global&sortBy=xp', null, tokenA);
   log('GET /leaderboard global XP', leaderGlobal.ok && leaderGlobal.json.data?.leaderboard?.length >= 2);

@@ -23,9 +23,17 @@ const matchSchema = new mongoose.Schema(
       enum: Object.values(MATCH_STATUS),
       default: MATCH_STATUS.ACTIVE,
     },
+    // Total days both buddies checked in (any day, streak or not)
     lockInCount: {
       type: Number,
       default: 0,
+    },
+    // Consecutive days both buddies checked in. lastDate is a UTC YYYY-MM-DD; a streak whose
+    // lastDate is older than yesterday has broken (see lockIn.service effectiveLockInStreak).
+    lockInStreak: {
+      current: { type: Number, default: 0 },
+      longest: { type: Number, default: 0 },
+      lastDate: { type: String, default: null },
     },
     startedAt: {
       type: Date,

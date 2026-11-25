@@ -9,7 +9,7 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import { COLORS, SPACING } from '../theme/theme';
-import { userApi, authApi, checkInApi, notificationApi, getAccessToken } from '../utils/api';
+import { userApi, authApi, checkInApi, notificationApi, buddyApi, getAccessToken } from '../utils/api';
 import { connectSocket, registerSocketListener } from '../utils/socket';
 import { registerForPushNotifications } from '../utils/push';
 import { takePendingRoute } from '../utils/notificationRoutes';
@@ -43,11 +43,20 @@ export default function HomeScreen({ navigation }) {
     return registerSocketListener('notification:new', () => setUnreadCount((c) => c + 1));
   }, []);
 
+  const [buddies, setBuddies] = useState([]); // active matches with lockInStreak + today status
+  const [lockInMsg, setLockInMsg] = useState(null);
+
+  const loadBuddies = () =>
+    buddyApi.getActiveMatches().then((res) => {
+      if (res.success) setBuddies(res.data.matches || []);
+    });
+
   useFocusEffect(
     useCallback(() => {
       notificationApi.unreadCount().then((res) => {
         if (res.success) setUnreadCount(res.data.unreadCount);
       });
+      loadBuddies();
     }, [])
   );
 
@@ -73,6 +82,15 @@ export default function HomeScreen({ navigation }) {
       setCheckInDone(true);
       setCheckInVerified(Boolean(result.data.checkIn?.isVerified));
       setCheckInError(null);
+      const lockIns = result.data.lockIns || [];
+      if (lockIns.length) {
+        setLockInMsg(
+          lockIns
+            .map((l) => `🔒 Locked in with ${l.buddyName}! ${l.streak > 1 ? `${l.streak}-day streak` : 'Streak started'} · +${l.xp} XP`)
+            .join('\n')
+        );
+      }
+      loadBuddies();
       setProfile((prev) =>
         prev
           ? {
@@ -245,6 +263,48 @@ export default function HomeScreen({ navigation }) {
           </>
         )}
       </View>
+
+      {/* Shared buddy streaks */}
+      {buddies.length > 0 && (
+        <View style={styles.lockInCard}>
+          <Text style={styles.sectionTitle}>🔒 LockIn Streaks</Text>
+          <Text style={styles.sectionDesc}>Check in on the same day as your buddy to build a streak together.</Text>
+          {lockInMsg && <Text style={styles.lockInCelebrate}>{lockInMsg}</Text>}
+          {buddies.map((m, idx) => {
+            const name = m.buddy?.user?.firstName || 'Buddy';
+            const streak = m.lockInStreak?.current || 0;
+            const status = m.lockInStreak?.lockedInToday
+              ? '✓ Locked in today'
+              : m.today?.buddy && !m.today?.you
+                ? `${name} checked in — your turn!`
+                : !m.today?.buddy && m.today?.you
+                  ? `Waiting for ${name}`
+                  : streak > 0
+                    ? 'Both check in today to keep it'
+                    : 'Check in together to start';
+            return (
+              <View key={String(m.matchId || idx)} style={styles.lockInRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lockInName}>{name}</Text>
+                  <Text
+                    style={[
+                      styles.lockInStatus,
+                      m.lockInStreak?.lockedInToday && { color: COLORS.success },
+                      m.today?.buddy && !m.today?.you && { color: COLORS.warning },
+                    ]}
+                  >
+                    {status}
+                  </Text>
+                </View>
+                <View style={styles.lockInStreakBox}>
+                  <Text style={styles.lockInStreakNum}>{streak}</Text>
+                  <Text style={styles.lockInStreakLbl}>{streak === 1 ? 'day' : 'days'}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Grid of options */}
       <View style={styles.grid}>
@@ -510,6 +570,49 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: SPACING.sm,
+  },
+  lockInCard: {
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  lockInCelebrate: {
+    color: COLORS.success,
+    fontWeight: '800',
+    marginBottom: SPACING.sm,
+  },
+  lockInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderTopColor: COLORS.border,
+    borderTopWidth: 1,
+  },
+  lockInName: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  lockInStatus: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  lockInStreakBox: {
+    alignItems: 'center',
+    minWidth: 56,
+  },
+  lockInStreakNum: {
+    color: COLORS.accent,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  lockInStreakLbl: {
+    color: COLORS.textMuted,
+    fontSize: 11,
   },
   checkInSuccess: {
     backgroundColor: 'rgba(16, 185, 129, 0.1)',

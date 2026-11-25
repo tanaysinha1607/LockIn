@@ -23,6 +23,8 @@ const createCheckIn = asyncHandler(async (req, res) => {
         consistencyScore: result.profile.consistencyScore,
       },
       summary: result.summary,
+      // Buddies you locked in with by this check-in: [{ buddyName, streak, xp, ... }]
+      lockIns: result.lockIns || [],
     })
   );
 });

@@ -218,8 +218,12 @@ export default function BuddyScreen({ navigation }) {
         </View>
         <Text style={styles.buddyName}>{name}</Text>
         <Text style={styles.subtext}>{formatLevel(profile?.fitnessLevel)}</Text>
-        <Text style={[styles.detailValue, { marginBottom: SPACING.md, marginTop: 4 }]}>
+        <Text style={[styles.detailValue, { marginBottom: SPACING.sm, marginTop: 4 }]}>
           {profile?.gymName || 'Gym not set'}
+        </Text>
+        <Text style={styles.lockInLine}>
+          🔒 {item.lockInStreak?.current || 0}-day LockIn streak · best {item.lockInStreak?.longest || 0} ·{' '}
+          {item.lockInCount || 0} total
         </Text>
         {item.conversationId && (
           <TouchableOpacity
@@ -545,5 +549,11 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 14,
     textAlign: 'center',
+  },
+  lockInLine: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: SPACING.md,
   },
 });

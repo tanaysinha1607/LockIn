@@ -93,7 +93,6 @@ const verifyCheckInLocation = (profile, rawLocation) => {
  */
 const completeTodaysSessions = async (userId, today, checkInDoc) => {
   const Session = require('../models/Session');
-  const Match = require('../models/Match');
   const User = require('../models/User');
   const Notification = require('../models/Notification');
   const { SESSION_STATUS, NOTIFICATION_TYPES } = require('../config/constants');
@@ -135,7 +134,7 @@ const completeTodaysSessions = async (userId, today, checkInDoc) => {
     if (!claimed) continue;
 
     await Promise.all([awardXp(userId, SESSION_BONUS_XP), awardXp(buddyId, SESSION_BONUS_XP)]);
-    await Match.updateOne({ _id: session.matchId }, { $inc: { lockInCount: 1 } });
+    // lockInCount is bumped by the mutual check-in (lockIn.service), which also covers this day
 
     const [userA, userB] = await Promise.all([User.findById(userId), User.findById(buddyId)]);
     const nameA = userA ? userA.firstName : 'Your buddy';
@@ -269,6 +268,15 @@ const createDailyCheckIn = async (userId, checkInBody = {}) => {
     awardXp(userId, xpEarned),
   ]);
 
+  // Mutual lock-ins with buddies who also checked in today (best-effort)
+  let lockIns = [];
+  try {
+    const { recordMutualLockIns } = require('./lockIn.service');
+    lockIns = await recordMutualLockIns(userId, today);
+  } catch (err) {
+    logger.error(`Lock-in update failed for ${userId}: ${err.message}`);
+  }
+
   // Sessions, challenges and badges (best-effort: a failure here must not undo the check-in)
   try {
     await completeTodaysSessions(userId, today, checkInDoc);
@@ -301,6 +309,7 @@ const createDailyCheckIn = async (userId, checkInBody = {}) => {
     streak,
     profile,
     summary: finalSummary,
+    lockIns,
   };
 };
 

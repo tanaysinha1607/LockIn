@@ -82,6 +82,20 @@
 - **Notification settings screen** (🔔 → ⚙️): switches for buddy requests, chat messages, reminders, challenge results; shows whether phone push is on.
 - Dev-only 🛠 "Send me a test push" on the Notifications screen (`POST /notifications/test-push`).
 
+## Deployed (Nov 25)
+
+- Backend: Render (`lockin-api`, free plan, `render.yaml` Blueprint) at https://lockin-api-y4mi.onrender.com, database `lockin_prod` on Atlas.
+- Web app: Vercel (`lockin-mobile`, root `mobile/`, `EXPO_PUBLIC_API_URL` set) at https://lockin-mobile.vercel.app. `CORS_ORIGINS` on Render allows only this site.
+- Free Render sleeps after ~15 min idle: first request is slow and reminders don't fire while asleep.
+
+## Feature: shared buddy streaks (Nov 25)
+
+- When both buddies check in on the same UTC day: one "lock-in" per pair per day (atomic claim), `Match.lockInStreak {current, longest, lastDate}` and `lockInCount` go up, both check-ins get `isLockIn`, both get +25 XP (+50/150/300/700 at 3/7/14/30 days) and a "🔒 Locked in with X!" notification.
+- A streak whose last mutual day is older than yesterday shows as 0 (`effectiveLockInStreak`).
+- Session completion no longer bumps `lockInCount` separately (the mutual check-in already counts that day).
+- `GET /buddy-requests/active` now returns `lockInStreak`, `lockInCount`, `today: { you, buddy }`. `POST /check-ins` returns `lockIns`.
+- Home: 🔒 LockIn Streaks card (per buddy: streak, "your turn!" / "waiting for X"). Buddies tab shows streak, best and total.
+
 ## Verification (Nov 17, against Atlas)
 
 - `verify` 22/22, `verify:phase5` 23/23 (after fixing the script sending `firstName` to the profile endpoint), `verify:phase6` 17/17 (fallback mode, no OpenAI key).
